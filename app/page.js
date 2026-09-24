@@ -168,7 +168,7 @@ function App() {
   async function doPlay() {
     if (playRef.current) return
     playRef.current = true; setPlaying(true)
-    await fetch('/api/scenario/reset', { method: 'POST' }); flash('Scenario started \u2014 normal city state'); await fetchState()
+    await fetch('/api/scenario/reset', { method: 'POST' }); flash('Scenario started — normal city state'); await fetchState()
     for (let i = 0; i < 5; i++) {
       await new Promise((res) => setTimeout(res, 2600))
       if (!playRef.current) break
@@ -227,7 +227,7 @@ function App() {
             <div className="mr-1 hidden text-xs text-slate-400 sm:block">Demo step <span className="font-bold text-slate-200">{step}/5</span></div>
             <button onClick={doPlay} disabled={busy || playing}
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50">
-              <Play className="h-4 w-4" /> {playing ? 'Playing\u2026' : 'Play Zone-3 Scenario'}
+              <Play className="h-4 w-4" /> {playing ? 'Playing…' : 'Play Zone-3 Scenario'}
             </button>
             <button onClick={doAdvance} disabled={busy || playing || step >= 5}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40">
@@ -260,7 +260,7 @@ function App() {
       </header>
 
       <main className="mx-auto max-w-[1400px] px-4 py-6">
-        {loading && <div className="flex h-64 items-center justify-center text-slate-400"><RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading civic signals\u2026</div>}
+        {loading && <div className="flex h-64 items-center justify-center text-slate-400"><RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading civic signals…</div>}
         {!loading && err && (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-6 text-amber-200">
             <div className="mb-1 flex items-center gap-2 font-semibold"><AlertTriangle className="h-5 w-5" /> Could not reach the data layer</div>
@@ -304,7 +304,7 @@ function Overview({ snapshot, view, scope, setScope, correlation, insight, goInt
           <select value={scope} onChange={(e) => setScope(e.target.value)}
             className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 outline-none">
             <option value="city">Whole City</option>
-            {snapshot.zones.map((v) => <option key={v.zone.id} value={v.zone.id}>{v.zone.label} \u00b7 {v.zone.name}</option>)}
+            {snapshot.zones.map((v) => <option key={v.zone.id} value={v.zone.id}>{v.zone.label} · {v.zone.name}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-5">
@@ -316,7 +316,7 @@ function Overview({ snapshot, view, scope, setScope, correlation, insight, goInt
             <FactorBar label="Incidents" value={f.incidents} />
           </div>
         </div>
-        <p className="mt-4 text-xs text-slate-500">An operational indicator derived from current civic signals \u2014 not a judgement of the area.</p>
+        <p className="mt-4 text-xs text-slate-500">An operational indicator derived from current civic signals — not a judgement of the area.</p>
       </div>
 
       {/* Signals */}
@@ -324,7 +324,7 @@ function Overview({ snapshot, view, scope, setScope, correlation, insight, goInt
         <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Active Signals</div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SignalCard source="weather" icon={CloudRain} name="Weather" severity={s.weather.severity}
-            status={s.weather.rainfall >= 4 ? `Heavy rainfall \u00b7 ${s.weather.rainfall} mm/h` : `Clear \u00b7 ${s.weather.rainfall} mm/h`} />
+            status={s.weather.rainfall >= 4 ? `Heavy rainfall · ${s.weather.rainfall} mm/h` : `Clear · ${s.weather.rainfall} mm/h`} />
           <SignalCard source="traffic" icon={Car} name="Traffic" severity={s.traffic.severity}
             status={`${s.traffic.count} active incidents`} change={Math.round(s.traffic.pct)} />
           <SignalCard source="transit" icon={Bus} name="Transit" severity={s.transit.severity}
@@ -358,7 +358,7 @@ function Overview({ snapshot, view, scope, setScope, correlation, insight, goInt
                 </div>
               </div>
               <div className="mt-4 flex items-center justify-between">
-                <span className="text-xs font-medium text-amber-300/90">\u26a0 Possible correlation \u2014 not confirmed causation.</span>
+                <span className="text-xs font-medium text-amber-300/90">⚠ Possible correlation — not confirmed causation.</span>
                 <button onClick={goIntel} className="inline-flex items-center gap-1 rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-400">
                   Explore Pattern <ChevronRight className="h-4 w-4" />
                 </button>
@@ -437,9 +437,9 @@ function EventPanel({ event, snapshot }) {
         <span className="font-semibold text-slate-100">{event.title}</span>
       </div>
       <div className="mt-3 space-y-2 text-sm">
-        <Row k="Type" v={`${M?.name || event.source} \u00b7 ${event.event_type || '\u2014'}`} />
+        <Row k="Type" v={`${M?.name || event.source} · ${event.event_type || '—'}`} />
         <Row k="Severity" v={<span className={`font-semibold ${s.text}`}>{s.label}</span>} />
-        <Row k="Zone" v={zone?.zone.label + ' \u00b7 ' + zone?.zone.name} />
+        <Row k="Zone" v={zone?.zone.label + ' · ' + zone?.zone.name} />
         <Row k="Time" v={fmtTime(event.timestamp)} />
         {event.value != null && <Row k="Value" v={`${event.value} ${event.unit || ''}`} />}
         {event.metadata?.road && <Row k="Road" v={event.metadata.road} />}
@@ -477,7 +477,7 @@ function Intelligence({ snapshot, correlation, insight }) {
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 lg:col-span-2">
-        <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Correlation Pattern \u2014 {correlation.zoneLabel}</div>
+        <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Correlation Pattern — {correlation.zoneLabel}</div>
         {/* visual tree */}
         <div className="mt-6 flex flex-col items-center">
           <Node color="sky" icon={CloudRain} label="HEAVY RAIN" />
@@ -519,9 +519,9 @@ function Intelligence({ snapshot, correlation, insight }) {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-400">
             <div><div className="text-slate-500">Shared area</div><div className="font-semibold text-slate-200">{correlation.zoneLabel}</div></div>
-            <div><div className="text-slate-500">Shared time</div><div className="font-semibold text-slate-200">{fmtTime(win?.start)} \u2013 {fmtTime(win?.end)}</div></div>
+            <div><div className="text-slate-500">Shared time</div><div className="font-semibold text-slate-200">{fmtTime(win?.start)} – {fmtTime(win?.end)}</div></div>
           </div>
-          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">\u26a0 Possible correlation \u2014 not confirmed causation.</div>
+          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">⚠ Possible correlation — not confirmed causation.</div>
         </div>
 
         {insight && (
@@ -615,7 +615,7 @@ function Alerts({ snapshot, refresh }) {
                 <span className="font-semibold text-slate-100">{a.title}</span>
                 <span className="ml-auto text-xs text-slate-500">{fmtTime(a.created_at)}</span>
               </div>
-              <div className="mt-1 flex items-center gap-2 text-xs text-slate-400"><MapPin className="h-3 w-3" /> {zone?.zone.label || 'City'} \u2014 {zone?.zone.name}</div>
+              <div className="mt-1 flex items-center gap-2 text-xs text-slate-400"><MapPin className="h-3 w-3" /> {zone?.zone.label || 'City'} — {zone?.zone.name}</div>
               <p className="mt-2 text-sm text-slate-300">{a.message}</p>
               {!resolved && (
                 <div className="mt-3 flex justify-end">
@@ -651,7 +651,7 @@ function Replay({ snapshot }) {
         <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Historical Replay</div>
         <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">DEMO REPLAY</span>
         <button onClick={play} disabled={playing || !events.length} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-50">
-          <Play className="h-4 w-4" /> {playing ? 'Replaying\u2026' : 'Play'}
+          <Play className="h-4 w-4" /> {playing ? 'Replaying…' : 'Play'}
         </button>
       </div>
       <input type="range" min="0" max={events.length} value={idx} onChange={(e) => setIdx(Number(e.target.value))} className="mt-4 w-full accent-sky-400" />

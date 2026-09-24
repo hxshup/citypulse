@@ -24,9 +24,12 @@ export default function CivicMap({ snapshot, layers, selectedZoneId, onSelectEve
       if (!mapRef.current) {
         mapRef.current = L.map(containerRef.current, { zoomControl: true, attributionControl: true })
           .setView([37.7793, -122.4193], 13)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19, subdomains: 'abcd',
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors', maxZoom: 19, subdomains: 'abc',
         }).addTo(mapRef.current)
+        // Free OSM tiles + CSS filter for a dark, civic-tech look (no API key required).
+        const pane = mapRef.current.getPane('tilePane')
+        if (pane) pane.style.filter = 'invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6)'
         layerRef.current = L.layerGroup().addTo(mapRef.current)
       }
       setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 200)

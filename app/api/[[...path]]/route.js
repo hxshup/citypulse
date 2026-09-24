@@ -23,8 +23,10 @@ export async function OPTIONS() { return json({}, 200) }
 
 async function readTable(table, limit = 100) {
   const sb = supabaseServer()
-  const order = table === 'civic_events' ? 'timestamp' : 'created_at'
-  const { data, error } = await sb.from(table).select('*').order(order, { ascending: false }).limit(limit)
+  const orderCol = table === 'civic_events' ? 'timestamp'
+    : (table === 'anomalies' || table === 'correlations') ? 'detected_at'
+    : 'created_at'
+  const { data, error } = await sb.from(table).select('*').order(orderCol, { ascending: false }).limit(limit)
   if (error) throw error
   return data || []
 }

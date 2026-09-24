@@ -101,3 +101,119 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Build CityPulse — a Live Civic Intelligence platform that ingests 3 civic data streams (weather, traffic, transit), normalizes them into CivicEvents, detects anomalies + correlations with transparent confidence, computes a Civic Pulse score, and produces grounded AI explanations. Includes a scripted Zone-3 demo scenario. Stack: Next.js + Supabase PostgreSQL + Leaflet + OpenAI (via Emergent key). Polling-based live updates."
+
+backend:
+  - task: "Supabase connectivity + schema (zones, civic_events, anomalies, correlations, insights, alerts, sim_state)"
+    implemented: true
+    working: true
+    file: "lib/supabase/server.js, lib/civic/store.js, supabase_migration.sql"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Schema + GRANTs applied by user in Supabase SQL editor. Server client uses secret key. Verified zones seed (4) and 20 baseline events insert on reset."
+        -working: true
+        -agent: "testing"
+        -comment: "Automated test passed: POST /api/scenario/reset returns step=0. GET /api/state returns 4 zones, 20 events. All database operations working correctly."
+
+  - task: "GET /api/state snapshot (signals, anomalies, correlations live, pulse, feeds, insights, alerts)"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js, lib/civic/store.js, lib/civic/intelligence.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Verified: after full scenario, Zone3 pulse 51, city 88, 3 high anomalies, correlation confidence 86% with transparent factors, feeds ok."
+        -working: true
+        -agent: "testing"
+        -comment: "Automated test passed: Initial state shows 4 zones, 20 events, city pulse=100, all feeds status='ok', correlations empty. After full scenario: Zone 3 pulse=51, 3 high anomalies (rainfall_mm_h, traffic_incidents, transit_delays), correlation confidence=86 with factors object and evidence array, 1 insight with AI summary, 1 active high alert."
+
+  - task: "Scenario driver POST /api/scenario/reset and /advance (5 steps)"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js, lib/civic/synthetic.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Verified stepwise: rain->traffic->transit->anomaly+correlation persist->AI insight+alert. sim_state cursor works."
+        -working: true
+        -agent: "testing"
+        -comment: "Automated test passed: All 5 steps advance correctly. Step 1: 'Heavy rainfall began in Zone 3'. Step 2: 'Traffic incidents spiking in Zone 3'. Step 3: 'Transit delays rising in Zone 3'. Step 4: 'Anomalies + correlation detected' with correlation object (confidence=86, time_overlap=26). Step 5: 'CityPulse generated an insight' with AI summary and ai=true flag. Idempotency verified: calling advance after step 5 returns step 5 without crash."
+
+  - task: "Grounded AI insight (OpenAI via emergentintegrations) with deterministic fallback"
+    implemented: true
+    working: true
+    file: "lib/civic/ai.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "AI=True returned real grounded summary with hedged language. Fallback template exists if key/model unavailable."
+        -working: true
+        -agent: "testing"
+        -comment: "Automated test passed: Step 5 returns AI-generated insight with summary='In Zone 3, heavy rainfall of 12 mm/h coincides with a 250% increase in traffic incidents and a 200% rise in transit delays. This situation may be related to the weather conditions, with a time overlap of 26 minutes. The correlation confidence is 86%.' and ai=true flag. Grounded summary working correctly."
+
+  - task: "List endpoints /api/anomalies /correlations /insights /alerts /events /zones + resolve alert"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: false
+        -agent: "main"
+        -comment: "Bug: anomalies/correlations ordered by created_at (col doesn't exist) -> 500."
+        -working: true
+        -agent: "main"
+        -comment: "Fixed order column to detected_at. Verified anomalies=3, correlations=1 return as lists."
+        -working: true
+        -agent: "testing"
+        -comment: "Automated test passed: All list endpoints return JSON arrays (not error objects). GET /api/zones (4 items), /api/events (30 items), /api/anomalies (3 items), /api/correlations (1 item), /api/insights (1 item), /api/alerts (1 item). GET /api/events/{valid_id} returns event object. GET /api/events/{invalid_id} returns 404. POST /api/alerts/{id}/resolve returns {ok:true} and alert status changes to 'resolved'. All endpoints working correctly."
+
+frontend:
+  - task: "CityPulse dashboard UI (overview, map, intelligence, events, alerts, replay)"
+    implemented: true
+    working: "NA"
+    file: "app/page.js, components/civic/CivicMap.jsx, app/layout.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Built full UI with polling live updates, Leaflet map, scenario controls. Not yet tested by automated agent (awaiting user permission)."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "GET /api/state snapshot"
+    - "Scenario driver POST /api/scenario/reset and /advance (5 steps)"
+    - "Grounded AI insight"
+    - "List endpoints"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Backend fully implemented and manually verified end-to-end. Please test all backend API endpoints: reset scenario, advance through 5 steps, verify /api/state returns anomalies (3 high in Zone3), correlation with confidence, pulse drop, AI insight (ai=true), alerts, and that list endpoints (/anomalies /correlations /insights /alerts /events /zones) return arrays. Also test alert resolve. Base URL internal http://localhost:3000. Note: state uses polling; each GET recomputes live."
+    -agent: "testing"
+    -message: "Backend testing complete. All 8 test suites passed (8/8). Tested: scenario reset, initial state verification, 5-step scenario advance with correct messages, final state with Zone 3 anomalies/correlation/pulse drop, all list endpoints returning arrays, event by ID (valid/invalid), alert resolve functionality, and idempotency. No 500 errors, no non-array responses, no missing fields. All backend APIs working correctly. Backend is production-ready."
