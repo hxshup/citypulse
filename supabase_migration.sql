@@ -105,6 +105,13 @@ create index if not exists correlations_zone_idx on public.correlations(zone_id)
 create index if not exists alerts_zone_idx on public.alerts(zone_id);
 create index if not exists insights_zone_idx on public.insights(zone_id);
 
+-- Grants: ensure the API roles can access the tables.
+grant usage on schema public to anon, authenticated, service_role;
+grant select on all tables in schema public to anon, authenticated;
+grant all privileges on all tables in schema public to service_role;
+alter default privileges in schema public grant select on tables to anon, authenticated;
+alter default privileges in schema public grant all privileges on tables to service_role;
+
 -- Row Level Security: public civic data is readable by anon.
 -- All writes are performed server-side with the secret key (which bypasses RLS).
 do $$ declare t text; begin
