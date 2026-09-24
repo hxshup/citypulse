@@ -845,7 +845,6 @@ CityPulse is designed so that the current synthetic data layer can eventually be
 
 Potential future integrations include:
 
-Weather APIs
 Traffic APIs
 Public Transit APIs
 Open Government Data
@@ -898,7 +897,7 @@ The same intelligence engine can then operate across different cities.
 
 CityPulse is a civic intelligence prototype.
 
-The current implementation uses synthetic civic data for demonstration purposes.
+The current implementation uses a hybrid data model: real current weather observations from WeatherAPI, combined with synthetic traffic, transit, and civic incident streams for deterministic demonstration and intelligence testing.
 
 Therefore:
 
@@ -976,7 +975,7 @@ Current implementation includes:
 ✓ Jaipur city configuration
 ✓ Four civic zones
 ✓ Jaipur landmark context
-✓ Synthetic weather signals
+✓ Real weather observations via WeatherAPI
 ✓ Synthetic traffic signals
 ✓ Synthetic transit signals
 ✓ Common CivicEvent model
@@ -1079,10 +1078,11 @@ Alerts
 
 into one application.
 
-The current prototype focuses on Jaipur and uses synthetic civic data to demonstrate the complete intelligence workflow.
+The current prototype focuses on Jaipur and uses a hybrid data model: real current weather observations from WeatherAPI combined with synthetic traffic, transit, and civic incident streams to demonstrate the complete intelligence workflow.
 
 The architecture is designed to evolve toward real civic data, advanced analytics, predictive intelligence, additional cities, and richer real-time capabilities.
 
 The core idea remains simple:
 
 See what's happening. Understand why it matters.
+```
