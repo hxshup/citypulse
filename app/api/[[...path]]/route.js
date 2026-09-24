@@ -30,6 +30,126 @@ async function readTable(table, limit = 100) {
   if (error) throw error
   return data || []
 }
+async function resolveExpiredEvents() {
+  const sb = supabaseServer()
+
+  const { data: events, error } = await sb
+    .from('civic_events')
+    .select('id, status, metadata')
+    .eq('status', 'active')
+
+  if (error || !events?.length) return
+
+  const now = Date.now()
+
+  const expiredIds = events
+    .filter((event) => {
+      const expiresAt = event.metadata?.expires_at
+      return expiresAt && new Date(expiresAt).getTime() <= now
+    })
+    .map((event) => event.id)
+
+  if (!expiredIds.length) return
+
+  await sb
+    .from('civic_events')
+    .update({ status: 'resolved' })
+    .in('id', expiredIds)
+}
+async function generateLiveEvent() {
+  const sb = supabaseServer()
+
+  const { data: zones, error: zoneError } = await sb
+    .from('zones')
+    .select('*')
+    .order('label')
+
+  if (zoneError || !zones?.length) return
+
+  const zone = zones[Math.floor(Math.random() * zones.length)]
+
+  const types = [
+    {
+      source: 'weather',
+      event_type: 'rainfall',
+      title: 'Light rainfall detected',
+      description: `Rainfall detected in ${zone.name}.`,
+      value: Math.round((Math.random() * 8 + 2) * 10) / 10,
+      unit: 'mm'
+    },
+    {
+      source: 'traffic',
+      event_type: 'incident',
+      title: 'Traffic activity detected',
+      description: `Increased traffic activity reported in ${zone.name}.`,
+      value: Math.floor(Math.random() * 6) + 2,
+      unit: 'incidents'
+    },
+    {
+      source: 'transit',
+      event_type: 'delay',
+      title: 'Transit delay detected',
+      description: `Minor transit delay reported in ${zone.name}.`,
+      value: Math.floor(Math.random() * 8) + 2,
+      unit: 'min'
+    }
+  ]
+
+  const event = types[Math.floor(Math.random() * types.length)]
+  const severity = Math.random() > 0.75 ? 'medium' : 'low'
+
+  const { data: insertedEvent, error: insertError } = await sb
+  .from('civic_events')
+  .insert({
+    source: event.source,
+    event_type: event.event_type,
+    title: event.title,
+    description: event.description,
+    zone_id: zone.id,
+    latitude: zone.latitude + (Math.random() - 0.5) * 0.004,
+    longitude: zone.longitude + (Math.random() - 0.5) * 0.004,
+    severity,
+    value: event.value,
+    unit: event.unit,
+    status: 'active',
+    timestamp: new Date().toISOString(),
+    metadata: {
+      generated: true,
+      live: true,
+      expires_at: new Date(
+        Date.now() +
+        (
+          event.source === 'weather'
+            ? (20 + Math.random() * 10) * 1000
+            : event.source === 'traffic'
+              ? (25 + Math.random() * 10) * 1000
+              : (30 + Math.random() * 10) * 1000
+        )
+      ).toISOString()
+    }
+  })
+  .select('id')
+  .single()
+
+if (insertError) {
+  throw insertError
+}
+if (insertedEvent?.id && (severity === 'medium' || severity === 'high')) {
+  const { error: alertError } = await sb.from('alerts').insert({
+    zone_id: zone.id,
+    alert_type: 'incident',
+    severity,
+    title: event.title,
+    message: `${event.description} This incident is currently active.`,
+    status: 'active'
+  })
+
+  if (alertError) {
+    throw alertError
+  }
+}
+}
+
 
 // ---- Scenario driver ------------------------------------------------------
 async function scenarioReset() {
@@ -97,10 +217,16 @@ async function handle(request, { params }) {
   try {
     if (route === '/' || route === '/root') return json({ app: 'CityPulse', status: 'ok' })
 
-    if (route === '/state' && method === 'GET') {
-      await ensureZones()
-      return json(await buildSnapshot())
-    }
+   if (route === '/state' && method === 'GET') {
+  await ensureZones()
+  await resolveExpiredEvents()
+  return json(await buildSnapshot())
+}
+if (route === '/live-event' && method === 'POST') {
+  await ensureZones()
+  await generateLiveEvent()
+  return json({ ok: true, message: 'Live event generated' })
+}
     if (route === '/zones' && method === 'GET') return json(await getZones())
 
     if (route === '/events' && method === 'GET') return json(await readTable('civic_events', 400))

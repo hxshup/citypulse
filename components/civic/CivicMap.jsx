@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import { CITY, LANDMARKS  } from '@/lib/civic/config'
 
 const SOURCE_COLOR = { weather: '#38bdf8', traffic: '#f59e0b', transit: '#a78bfa' }
 function pulseColor(score) {
@@ -23,7 +24,7 @@ export default function CivicMap({ snapshot, layers, selectedZoneId, onSelectEve
       LRef.current = L
       if (!mapRef.current) {
         mapRef.current = L.map(containerRef.current, { zoomControl: true, attributionControl: true })
-          .setView([37.7793, -122.4193], 13)
+          .setView(CITY.center, CITY.zoom)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap contributors', maxZoom: 19, subdomains: 'abc',
         }).addTo(mapRef.current)
@@ -62,6 +63,46 @@ export default function CivicMap({ snapshot, layers, selectedZoneId, onSelectEve
         interactive: false,
       }).addTo(lg)
     }
+    // Jaipur landmark markers
+    for (const landmark of LANDMARKS) {
+      const zone = (snapshot.zones || []).find(
+        (zv) => zv.zone.id === landmark.zoneId
+      )
+
+      const marker = L.marker([landmark.latitude, landmark.longitude], {
+        icon: L.divIcon({
+          className: '',
+          html: `
+            <div style="
+              transform:translate(-50%,-50%);
+              display:flex;
+              align-items:center;
+              gap:5px;
+              white-space:nowrap;
+              font:600 11px Inter,sans-serif;
+              color:#f8fafc;
+              background:rgba(15,23,42,.92);
+              padding:4px 8px;
+              border-radius:8px;
+              border:1px solid rgba(56,189,248,.45);
+              box-shadow:0 4px 12px rgba(0,0,0,.35);
+            ">
+              <span style="color:#38bdf8;">◆</span>
+              ${landmark.name}
+            </div>
+          `,
+        }),
+      })
+
+      marker.bindTooltip(
+        `<b>${landmark.name}</b><br/>${landmark.description}<br/>${
+          zone ? `${zone.zone.label} · ${zone.zone.name} · Pulse ${zone.pulse.score}` : ''
+        }`,
+        { direction: 'top' }
+      )
+
+      marker.addTo(lg)
+    }
 
     for (const e of snapshot.events || []) {
       if (e.latitude == null || !layers[e.source]) continue
@@ -82,5 +123,5 @@ export default function CivicMap({ snapshot, layers, selectedZoneId, onSelectEve
     }
   }
 
-  return <div ref={containerRef} className="h-full w-full rounded-xl overflow-hidden" style={{ background: '#0b1120' }} />
+  return <div ref={containerRef} className="relative z-0 h-full w-full rounded-xl overflow-hidden" style={{ background: '#0b1120' }} />
 }

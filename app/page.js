@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import {
-  Activity, CloudRain, Car, Bus, AlertTriangle, MapPin, Radio, RefreshCw,
+  Activity, CloudRain, Car, Bus, AlertTriangle, MapPin, Radio, RefreshCw,Menu,
   Play, SkipForward, Zap, Clock, Gauge, Network, Bell, History, LayoutDashboard,
   ChevronRight, Sparkles, ShieldCheck, CircleDot,
 } from 'lucide-react'
@@ -133,8 +133,11 @@ function App() {
   const [scope, setScope] = useState('city')
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [playing, setPlaying] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
+  const [activity, setActivity] = useState([])
+  const previousEventsRef = useRef(new Map())
   const [layers, setLayers] = useState({ weather: true, traffic: true, transit: true, anomalies: true })
   const playRef = useRef(false)
 
@@ -143,7 +146,52 @@ function App() {
       const r = await fetch('/api/state', { cache: 'no-store' })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Failed to load')
-      setSnapshot(d); setErr(null)
+      const previousEvents = previousEventsRef.current
+
+const currentEvents = new Map(
+  (d.events || []).map((event) => [event.id, event])
+)
+
+const changes = []
+
+for (const event of d.events || []) {
+  const previous = previousEvents.get(event.id)
+
+  // Newly detected active incident
+  if (!previous && event.status === 'active') {
+    changes.push({
+      id: `${event.id}-active-${Date.now()}`,
+      type: 'new',
+      event,
+      time: Date.now(),
+    })
+  }
+
+  // Previously active incident has now resolved
+  if (previous?.status === 'active' && event.status === 'resolved') {
+    changes.push({
+      id: `${event.id}-resolved-${Date.now()}`,
+      type: 'resolved',
+      event,
+      time: Date.now(),
+    })
+  }
+}
+
+previousEventsRef.current = currentEvents
+
+if (changes.length) {
+  setActivity((prev) => [...changes, ...prev].slice(0, 6))
+
+  changes.forEach((change) => {
+    setTimeout(() => {
+      setActivity((prev) => prev.filter((item) => item.id !== change.id))
+    }, 5000)
+  })
+}
+
+setSnapshot(d)
+setErr(null)
     } catch (e) { setErr(e.message) } finally { setLoading(false) }
   }, [])
 
@@ -155,11 +203,40 @@ function App() {
 
   const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 2600) }
 
-  async function doReset() {
-    setBusy(true)
-    try { const r = await fetch('/api/scenario/reset', { method: 'POST' }); const d = await r.json(); flash(d.message); await fetchState() }
-    finally { setBusy(false) }
+  async function doRefreshScores() {
+  setBusy(true)
+  try {
+    await fetchState()
+    flash('Live civic scores refreshed')
+  } finally {
+    setBusy(false)
   }
+}
+  async function doGenerateLiveEvent() {
+  setBusy(true)
+  try {
+    const r = await fetch('/api/live-event', { method: 'POST' })
+    const d = await r.json()
+
+    if (!r.ok) throw new Error(d.error || 'Failed to generate event')
+
+    flash('Live event generated')
+    await fetchState()
+  } catch (e) {
+    flash(e.message)
+  } finally {
+    setBusy(false)
+  }
+}
+useEffect(() => {
+  if (playing) return
+
+  const id = setInterval(() => {
+    doGenerateLiveEvent()
+  }, 10000)
+
+  return () => clearInterval(id)
+}, [playing])
   async function doAdvance() {
     setBusy(true)
     try { const r = await fetch('/api/scenario/advance', { method: 'POST' }); const d = await r.json(); flash(d.message); await fetchState(); return d }
@@ -185,10 +262,23 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100" style={{ backgroundImage: 'radial-gradient(1200px 500px at 80% -10%, rgba(56,189,248,0.08), transparent), radial-gradient(1000px 400px at 0% 0%, rgba(168,85,247,0.06), transparent)' }}>
+     {/* Live Incident Activity */}
+{activity.length > 0 && (
+  <div className="fixed right-5 top-20 z-50 w-[340px] space-y-2">
+    
+  </div>
+)}
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-3">
-          <div className="flex items-center gap-2">
+       <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
+         <div className="flex items-center gap-2">
+  <button
+    onClick={() => setMobileMenuOpen((v) => !v)}
+    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 sm:hidden"
+    aria-label="Open navigation"
+  >
+    <Menu className="h-5 w-5" />
+  </button>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 shadow-lg shadow-sky-500/20">
               <Activity className="h-5 w-5 text-white" />
             </div>
@@ -206,11 +296,11 @@ function App() {
               </span>
               LIVE
             </span>
-            <Chip tone="slate"><MapPin className="h-3 w-3" /> {snapshot?.city?.name || 'San Francisco'}</Chip>
+            <Chip tone="slate"><MapPin className="h-3 w-3" /> {snapshot?.city?.name || 'Jaipur'}</Chip>
             <Chip tone="slate"><Clock className="h-3 w-3" /> {fmtTime(snapshot?.lastUpdated)}</Chip>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto hidden items-center gap-2 sm:flex">
             {(snapshot?.feeds || []).map((f) => {
               const M = SOURCE_META[f.source]
               const ok = f.status === 'ok'
@@ -223,7 +313,7 @@ function App() {
             })}
           </div>
 
-          <div className="flex w-full items-center gap-2 sm:w-auto">
+          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
             <div className="mr-1 hidden text-xs text-slate-400 sm:block">Demo step <span className="font-bold text-slate-200">{step}/5</span></div>
             <button onClick={doPlay} disabled={busy || playing}
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50">
@@ -233,15 +323,69 @@ function App() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40">
               <SkipForward className="h-4 w-4" /> Next
             </button>
-            <button onClick={doReset} disabled={busy || playing}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-50">
-              <RefreshCw className="h-4 w-4" /> Reset
-            </button>
           </div>
         </div>
+        {mobileMenuOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-black/50 sm:hidden"
+              onClick={() => setMobileMenuOpen(false)}
+            />
 
+            <div className="fixed left-0 top-0 z-50 h-full w-72 border-r border-slate-800 bg-slate-950 shadow-2xl sm:hidden">
+              <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600">
+                    <Activity className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="font-bold text-slate-100">CITYPULSE</span>
+                </div>
+
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  aria-label="Close navigation"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-1 p-3">
+                {TABS.map((t) => {
+                  const active = tab === t.id
+
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setTab(t.id)
+                        setMobileMenuOpen(false)
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition ${
+                        active
+                          ? 'bg-sky-500/10 text-sky-300'
+                          : 'text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      <t.icon className="h-4 w-4" />
+                      <span>{t.label}</span>
+
+                      {t.id === 'alerts' &&
+                        snapshot?.alerts?.filter((a) => a.status === 'active').length > 0 && (
+                          <span className="ml-auto rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
+                            {snapshot.alerts.filter((a) => a.status === 'active').length}
+                          </span>
+                        )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        )}
+        
         {/* tabs */}
-        <div className="mx-auto flex max-w-[1400px] gap-1 overflow-x-auto px-4">
+        <div className="mx-auto hidden max-w-[1400px] gap-1 overflow-x-auto px-4 sm:flex">
           {TABS.map((t) => {
             const active = tab === t.id
             return (
@@ -258,6 +402,64 @@ function App() {
           })}
         </div>
       </header>
+      {mobileMenuOpen && (
+  <>
+    <div
+      className="fixed inset-0 z-40 bg-black/60 sm:hidden"
+      onClick={() => setMobileMenuOpen(false)}
+    />
+
+    <div className="fixed left-0 top-0 z-50 h-full w-72 border-r border-slate-800 bg-slate-950 shadow-2xl sm:hidden">
+      <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
+  <div className="flex items-center gap-2">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600">
+      <Activity className="h-4 w-4 text-white" />
+    </div>
+    <span className="font-bold text-slate-100">CITYPULSE</span>
+  </div>
+
+  <button
+    onClick={() => setMobileMenuOpen(false)}
+    className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+    aria-label="Close navigation"
+  >
+    ✕
+  </button>
+</div>
+
+<div className="space-y-1 p-3">
+  {TABS.map((t) => {
+    const active = tab === t.id
+
+    return (
+      <button
+        key={t.id}
+        onClick={() => {
+          setTab(t.id)
+          setMobileMenuOpen(false)
+        }}
+        className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition ${
+          active
+            ? 'bg-sky-500/10 text-sky-300'
+            : 'text-slate-300 hover:bg-slate-800'
+        }`}
+      >
+        <t.icon className="h-4 w-4" />
+        <span>{t.label}</span>
+
+        {t.id === 'alerts' &&
+          snapshot?.alerts?.filter((a) => a.status === 'active').length > 0 && (
+            <span className="ml-auto rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
+              {snapshot.alerts.filter((a) => a.status === 'active').length}
+            </span>
+          )}
+      </button>
+    )
+  })}
+</div>
+    </div>
+  </>
+)}
 
       <main className="mx-auto max-w-[1400px] px-4 py-6">
         {loading && <div className="flex h-64 items-center justify-center text-slate-400"><RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading civic signals…</div>}
@@ -271,7 +473,7 @@ function App() {
 
         {!loading && !err && snapshot && (
           <>
-            {tab === 'overview' && <Overview snapshot={snapshot} view={view} scope={scope} setScope={setScope} correlation={activeCorrelation} insight={latestInsight} goIntel={() => setTab('intelligence')} />}
+            {tab === 'overview' && <Overview snapshot={snapshot} view={view} scope={scope} setScope={setScope} correlation={activeCorrelation} insight={latestInsight} goIntel={() => setTab('intelligence')} activity={activity}/>}
             {tab === 'map' && <MapTab snapshot={snapshot} layers={layers} setLayers={setLayers} scope={scope} selectedEvent={selectedEvent} setSelectedEvent={setSelectedEvent} />}
             {tab === 'intelligence' && <Intelligence snapshot={snapshot} correlation={activeCorrelation} insight={latestInsight} />}
             {tab === 'events' && <Events snapshot={snapshot} selectedEvent={selectedEvent} setSelectedEvent={setSelectedEvent} />}
@@ -291,8 +493,7 @@ function App() {
 }
 
 /* ----------------------------- Overview ----------------------------- */
-function Overview({ snapshot, view, scope, setScope, correlation, insight, goIntel }) {
-  if (!view) return null
+function Overview({ snapshot, view, scope, setScope, correlation, insight, goIntel, activity }) {  if (!view) return null
   const f = view.pulse.factors
   const s = view.signals
   return (
@@ -307,9 +508,12 @@ function Overview({ snapshot, view, scope, setScope, correlation, insight, goInt
             {snapshot.zones.map((v) => <option key={v.zone.id} value={v.zone.id}>{v.zone.label} · {v.zone.name}</option>)}
           </select>
         </div>
-        <div className="flex items-center gap-5">
-          <PulseRing score={view.pulse.score} />
-          <div className="flex-1 space-y-3">
+<div className="flex items-center gap-5">
+  <div className="flex min-w-[180px] flex-col items-center">
+    <PulseRing score={view.pulse.score} />
+  </div>
+
+  <div className="flex-1 space-y-3">
             <FactorBar label="Weather" value={f.weather} />
             <FactorBar label="Traffic" value={f.traffic} />
             <FactorBar label="Transit" value={f.transit} />
@@ -317,6 +521,47 @@ function Overview({ snapshot, view, scope, setScope, correlation, insight, goInt
           </div>
         </div>
         <p className="mt-4 text-xs text-slate-500">An operational indicator derived from current civic signals — not a judgement of the area.</p>
+        <div className="mt-6 flex min-h-[120px] items-center justify-center">
+  {activity.length > 0 && (() => {
+    const item = activity[0]
+    const event = item.event
+    const isResolved = item.type === 'resolved'
+
+    const zone = snapshot?.zones?.find(
+      (z) => z.zone.id === event.zone_id
+    )
+
+    return (
+      <div
+        className={`w-full max-w-[320px] rounded-xl border px-4 py-3 text-center transition-all duration-500 ${
+          isResolved
+            ? 'border-emerald-500/30 bg-emerald-500/10'
+            : 'border-orange-500/30 bg-orange-500/10'
+        }`}
+      >
+        <div
+          className={`text-[11px] font-bold uppercase tracking-wider ${
+            isResolved
+              ? 'text-emerald-300'
+              : 'text-orange-300'
+          }`}
+        >
+          {isResolved
+            ? '● Incident Resolved'
+            : '● Incident Detected'}
+        </div>
+
+        <div className="mt-1.5 text-sm font-semibold text-slate-100">
+          {event.title}
+        </div>
+
+        <div className="mt-1 text-xs text-slate-400">
+          {zone?.zone?.label || 'Unknown Zone'}
+        </div>
+      </div>
+    )
+  })()}
+</div>
       </div>
 
       {/* Signals */}
