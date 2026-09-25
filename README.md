@@ -1,16 +1,26 @@
 # CityPulse — Live Civic Intelligence & Neighborhood Health
 
-> **See what's happening. Understand why it matters.**
+> See what's happening. Understand why it matters.
 
-CityPulse fuses multiple civic data streams into one glanceable, real-time view of a neighborhood. It detects anomalies, finds **possible correlations** between civic signals, scores neighborhood health, and generates **grounded** plain-language explanations — clearly distinguishing correlation from causation.
+CityPulse fuses multiple civic data streams into one glanceable, real-time view of a neighborhood. It detects anomalies, finds possible correlations between civic signals, scores neighborhood health, and generates grounded plain-language explanations while clearly distinguishing correlation from causation.
 
 ---
 
-## Core value pipeline
+## At a glance
 
 ```text
 MULTIPLE CIVIC SIGNALS → DATA FUSION → ANOMALY DETECTION → CORRELATION
 → EVIDENCE → PLAIN-LANGUAGE EXPLANATION → ACTIONABLE CIVIC AWARENESS
+```
+
+### Why it matters
+
+- Real-time visibility into neighborhood conditions
+- Transparent civic signal analysis instead of opaque black-box output
+- Explainable findings with explicit confidence and evidence
+- Actionable awareness for residents, operators, and civic stakeholders
+
+---
 
 ## Tech stack
 
@@ -22,241 +32,227 @@ MULTIPLE CIVIC SIGNALS → DATA FUSION → ANOMALY DETECTION → CORRELATION
 | AI explanation | OpenAI API + deterministic fallback                 |
 | Live updates   | Polling (modular — swappable for Supabase Realtime) |
 
+---
 
-## Architecture (separation of concerns)
+## Architecture and separation of concerns
 
+```text
 lib/civic/config.js            Baselines, thresholds, confidence + pulse weights, zones, landmarks
-
 lib/civic/synthetic.js         Synthetic data adapters → normalized CivicEvents
-                               (designed to be swappable for real APIs)
-
-lib/civic/intelligence.js      Deterministic engine:
-                               signals, anomalies, correlation, confidence, pulse
-
-lib/civic/ai.js                Grounded AI summary
-                               (uses ONLY verified findings) + deterministic fallback
-
+                              (designed to be swappable for real APIs)
+lib/civic/intelligence.js      Deterministic engine: signals, anomalies, correlation, confidence, pulse
+lib/civic/ai.js                Grounded AI summary (uses ONLY verified findings) + deterministic fallback
 lib/civic/store.js             Supabase reads/writes + live snapshot builder
+lib/supabase/server.js         Server-only Supabase client (secret key, never in browser)
+app/api/[[...path]]/route.js  REST API: state, live events, scenarios, records
+app/page.js                   UI shell + 6 screens + polling live updates
+components/civic/CivicMap.jsx Leaflet map + civic zones + landmarks + events
+```
 
-lib/supabase/server.js         Server-only Supabase client
-                               (secret key, never in browser)
+---
 
-app/api/[[...path]]/route.js  REST API
-                               state, live events, scenarios, records
+## Data model
 
-app/page.js                    UI shell + 6 screens + polling live updates
+### CivicEvent
 
-components/civic/CivicMap.jsx  Leaflet map + civic zones + landmarks + events
+| Field       | Description               |
+| ----------- | ------------------------- |
+| id          | Unique event ID           |
+| source      | Data source               |
+| event_type  | Event category            |
+| title       | Human-readable title      |
+| description | Event description         |
+| zone_id     | Related civic zone        |
+| latitude    | Geographic latitude       |
+| longitude   | Geographic longitude      |
+| severity    | Severity level            |
+| value       | Measured signal value     |
+| unit        | Unit of measurement       |
+| status      | Event status              |
+| timestamp   | Event timestamp           |
+| metadata    | Extra structured metadata |
+| created_at  | Creation timestamp        |
 
+### Database tables
 
-##  Data model — CivicEvent
+- zones
+- civic_events
+- anomalies
+- correlations
+- insights
+- alerts
+- sim_state
 
-id
-source
-event_type
-title
-description
-zone_id
-latitude
-longitude
-severity
-value
-unit
-status
-timestamp
-metadata
-created_at
+`sim_state` is used for the deterministic demo scenario cursor.
 
-##  Tables:
+See `supabase_migration.sql` for the database schema and policies.
 
-zones
-civic_events
-anomalies
-correlations
-insights
-alerts
-sim_state
+---
 
-sim_state is used for the deterministic demo scenario cursor.
+## Algorithms and intelligence model
 
-See supabase_migration.sql for the database schema and policies
-
-
-##  Algorithms (transparent & documented)
-
-Anomaly detection
+### Anomaly detection
 
 Anomaly detection compares the current signal against its configured baseline.
+
+```text
 change% = (current − baseline) / baseline × 100
+```
 
 Anomaly thresholds:
 
-ANOMALY: change% ≥ 40
-HIGH:    change% ≥ 100
+- ANOMALY: change% ≥ 40
+- HIGH: change% ≥ 100
 
 Rainfall additionally uses intensity thresholds:
 
-Moderate rainfall ≥ 4 mm/h
-Heavy rainfall   ≥ 10 mm/h
+- Moderate rainfall: ≥ 4 mm/h
+- Heavy rainfall: ≥ 10 mm/h
 
-These thresholds are configured in lib/civic/config.js.
+These thresholds are configured in `lib/civic/config.js`.
 
-
-##  Correlation confidence
+### Correlation confidence
 
 Correlation confidence is calculated using a weighted combination of four explainable factors:
 
+```text
 confidence = 100 × (
     0.30 · location_overlap
   + 0.25 · time_overlap_score
   + 0.25 · anomaly_strength
   + 0.20 · signal_strength
 )
+```
 
-A correlation is surfaced only when:
+A correlation is surfaced only when all of the following are true:
 
-confidence ≥ 55%
+- confidence ≥ 55%
+- weather anomaly
+- traffic or transit anomaly
+- same civic zone
+- within a 45-minute correlation window
 
-and:
+The system always labels this as a possible correlation and never presents it as confirmed causation.
 
-weather anomaly
-        +
-traffic or transit anomaly
-        +
-same civic zone
-        +
-within 45-minute correlation window
-
-The system always labels this as a possible correlation.
-
-It never presents correlation as confirmed causation.
-
-
-##  Civic Pulse
+### Civic Pulse
 
 Civic Pulse is calculated independently for each zone.
 
+```text
 pulse = 0.25 · weather
       + 0.30 · traffic
       + 0.25 · transit
       + 0.20 · incidents
+```
 
-The resulting score ranges from:
-
-0 → 100
-
-where a higher score represents healthier current civic conditions.
+The resulting score ranges from 0 to 100, where a higher score represents healthier current civic conditions.
 
 Each sub-score penalizes signal stress such as:
 
-Rainfall intensity
-Traffic percentage change
-Transit percentage change
-High-severity incident count
+- rainfall intensity
+- traffic percentage change
+- transit percentage change
+- high-severity incident count
 
 The pulse calculation is deterministic and transparent.
 
+---
 
-##  AI layer
+## AI layer
 
 The AI explanation layer receives only verified findings produced by the deterministic intelligence engine.
 
-It does not independently invent civic events, numbers, locations, causes, or other facts.
+It does not independently invent civic events, numbers, locations, causes, or other facts. The explanation uses hedged language such as:
 
-The explanation uses hedged language such as:
-
-possible correlation
-coincides with
-may be related
-suggests
+- possible correlation
+- coincides with
+- may be related
+- suggests
 
 rather than presenting an unverified causal relationship as fact.
 
-If the OpenAI API is unavailable, the system automatically falls back to a deterministic explanation template.
+If the OpenAI API is unavailable, the system automatically falls back to a deterministic explanation template. This means the core CityPulse intelligence pipeline remains functional even when the optional AI explanation service is unavailable.
 
-This means the core CITYPULSE intelligence pipeline remains functional even when the optional AI explanation service is unavailable.
-
+---
 
 ## API
-Method	Route	Purpose
-GET	/api/state	Live snapshot containing signals, anomalies, correlations, pulse, feeds, insights, and alerts
-POST	/api/scenario/reset	Reset the city to the normal state
-POST	/api/scenario/advance	Advance the scripted Zone-3 scenario by one step
-POST	/api/live-event	Generate a new synthetic live civic event
-GET	/api/zones	Retrieve civic zones
-GET	/api/events	Retrieve civic events
-GET	/api/anomalies	Retrieve detected anomalies
-GET	/api/correlations	Retrieve detected correlations
-GET	/api/insights	Retrieve generated intelligence insights
-GET	/api/alerts	Retrieve civic alerts
-GET	/api/events/:id	Retrieve a single civic event
-POST	/api/alerts/:id/resolve	Resolve an alert
 
 The API is implemented through the Next.js application backend.
 
+| Method | Route                   | Purpose                                                                                       |
+| ------ | ----------------------- | --------------------------------------------------------------------------------------------- |
+| GET    | /api/state              | Live snapshot containing signals, anomalies, correlations, pulse, feeds, insights, and alerts |
+| POST   | /api/scenario/reset     | Reset the city to the normal state                                                            |
+| POST   | /api/scenario/advance   | Advance the scripted Zone-3 scenario by one step                                              |
+| POST   | /api/live-event         | Generate a new synthetic live civic event                                                     |
+| GET    | /api/zones              | Retrieve civic zones                                                                          |
+| GET    | /api/events             | Retrieve civic events                                                                         |
+| GET    | /api/anomalies          | Retrieve detected anomalies                                                                   |
+| GET    | /api/correlations       | Retrieve detected correlations                                                                |
+| GET    | /api/insights           | Retrieve generated intelligence insights                                                      |
+| GET    | /api/alerts             | Retrieve civic alerts                                                                         |
+| GET    | /api/events/:id         | Retrieve a single civic event                                                                 |
+| POST   | /api/alerts/:id/resolve | Resolve an alert                                                                              |
 
-##  Screens
+---
+
+## Application screens
 
 CityPulse contains six primary application screens:
 
-Overview
-Live Map
-Intelligence
-Events
-Alerts
-Historical Replay
+1. Overview
+2. Live Map
+3. Intelligence
+4. Events
+5. Alerts
+6. Historical Replay
 
+### Overview
 
+The main city-health dashboard displays:
 
+- overall civic pulse
+- zone health
+- weather signals
+- traffic signals
+- transit signals
+- civic incidents
+- active alerts
+- recent live activity
 
-## Overview
+### Live Map
 
-The main city-health dashboard displaying:
+Interactive Leaflet map displaying:
 
-Overall civic pulse
-Zone health
-Weather signals
-Traffic signals
-Transit signals
-Civic incidents
-Active alerts
-Recent live activity
-Live Map
-
-## Interactive Leaflet map displaying:
-
-Jaipur
-Civic zones
-Zone pulse scores
-Live civic events
-Event locations
-Jaipur landmarks
-Geographic context
+- Jaipur
+- civic zones
+- zone pulse scores
+- live civic events
+- event locations
+- Jaipur landmarks
+- geographic context
 
 Current landmark context includes:
 
-Hawa Mahal
-City Palace
-Jantar Mantar
-Albert Hall Museum
+- Hawa Mahal
+- City Palace
+- Jantar Mantar
+- Albert Hall Museum
 
 Landmarks use their own real-world coordinates and are associated with the civic zone containing them.
 
+### Intelligence
 
-## Intelligence
+Displays the analytical layer including:
 
-Displays the analytical layer:
+- detected anomalies
+- correlations
+- evidence
+- confidence
+- signal relationships
+- grounded explanations
 
-Detected anomalies
-Correlations
-Evidence
-Confidence
-Signal relationships
-Grounded explanations
-
-
-
-## Events
+### Events
 
 Provides a chronological view of civic events and their current status.
 
@@ -264,76 +260,75 @@ Events can move through:
 
 Generated → Active → Resolved
 
-Active events affect the current city snapshot.
+Active events affect the current city snapshot, while resolved events remain available as historical records.
 
-Resolved events remain available as historical records.
-
-## Alerts
+### Alerts
 
 Centralized alert monitoring with:
 
-Alert type
-Severity
-Zone
-Message
-Status
-Timestamp
-Resolution controls
-Historical Replay
+- alert type
+- severity
+- zone
+- message
+- status
+- timestamp
+- resolution controls
+
+### Historical Replay
 
 Provides the foundation for exploring civic activity over time and replaying historical event sequences.
 
+---
 
-Demo (scripted Zone-3 scenario)
+## Demo scenario: Zone-3 scripted flow
 
-The deterministic demo scenario is centered on:
+The deterministic demo scenario is centered on Zone 3 — Civic Center.
 
-Zone 3 — Civic Center
-1. Normal state
+### 1. Normal state
 
-Open CityPulse with the city in a normal state.
+Open CityPulse with the city in a normal state. The zones begin with healthy Civic Pulse values.
 
-The zones begin with healthy Civic Pulse values.
+### 2. Start the scenario
 
-2. Start the scenario
+Click Play Zone-3 Scenario or use Next to manually advance one step at a time.
 
-Click:
-
-Play Zone-3 Scenario
-
-or use:
-
-Next
-
-to manually advance one step at a time.
-
-3. Heavy rainfall
+### 3. Heavy rainfall
 
 Heavy rainfall begins in Zone 3.
 
+```text
 Weather signal
       ↓
 Rainfall anomaly
-4. Traffic spike
+```
+
+### 4. Traffic spike
 
 Traffic incidents increase in the same zone.
 
+```text
 Rainfall anomaly
       ↓
 Traffic anomaly
-5. Transit delays
+```
+
+### 5. Transit delays
 
 Transit delays increase.
 
+```text
 Rainfall anomaly
       ↓
 Traffic anomaly
       ↓
 Transit anomaly
-6. Intelligence detection
+```
+
+### 6. Intelligence detection
 
 The deterministic intelligence engine identifies abnormal signals and evaluates their relationship.
 
+```text
 Same zone
 +
 Time overlap
@@ -341,40 +336,38 @@ Time overlap
 Anomaly strength
 +
 Signal relationship
+```
 
 The system can then surface a possible correlation with a calculated confidence score.
 
-7. Grounded AI insight
+### 7. Grounded AI insight
 
-The verified findings are passed to the AI explanation layer.
+The verified findings are passed to the AI explanation layer. The AI converts the structured evidence into a short plain-language explanation.
 
-The AI converts the structured evidence into a short plain-language explanation.
-
-8. Alert
+### 8. Alert
 
 A corresponding civic alert can appear in the Alert Center.
 
-9. Explore
+### 9. Explore
 
 The user can then explore:
 
-Intelligence
-Evidence
-Event timeline
-Map
-Alerts
-Historical state
+- Intelligence
+- Evidence
+- Event timeline
+- Map
+- Alerts
+- Historical state
 
-This demonstrates the complete end-to-end CITYPULSE intelligence workflow.
+This demonstrates the complete end-to-end CityPulse intelligence workflow.
 
+---
 
+## Live event lifecycle
 
-##  Live event lifecycle
+CityPulse also supports automatically generated synthetic live events outside the scripted scenario.
 
-CITYPULSE also supports automatically generated synthetic live events outside the scripted scenario.
-
-The lifecycle is:
-
+```text
 Generate
    ↓
 Active
@@ -382,22 +375,27 @@ Active
 Expires
    ↓
 Resolved
+```
 
 Current simulated event lifetimes are approximately:
 
-Weather: 20–30 seconds
-Traffic: 25–35 seconds
-Transit: 30–40 seconds
+- Weather: 20–30 seconds
+- Traffic: 25–35 seconds
+- Transit: 30–40 seconds
 
-When an event expires, it is resolved and no longer contributes to the active civic snapshot.
+When an event expires, it is resolved and no longer contributes to the active civic snapshot. Historical event records remain available.
 
-Historical event records remain available.
+---
 
+## Automatic live simulation
 
+When the scripted scenario is not playing, CityPulse can automatically generate synthetic live civic events.
 
-##  Automatic live simulation
+---
 
-When the scripted scenario is not playing, CITYPULSE can automatically generate synthetic live civic events.
+## Summary
+
+CityPulse is designed to turn noisy civic signals into understandable, timely, and useful neighborhood intelligence — blending deterministic analytics, explainable correlation logic, and grounded AI explanations into a clear operational view of urban health.
 
 The frontend periodically requests a new live event.
 
@@ -408,33 +406,30 @@ This creates a continuously changing demonstration environment without requiring
 The live simulation supports:
 
 New event generation
-        ↓
+↓
 Database persistence
-        ↓
+↓
 Dashboard update
-        ↓
+↓
 Pulse recalculation
-        ↓
+↓
 Anomaly detection
-        ↓
+↓
 Potential alert generation
-        ↓
+↓
 Event expiration
-        ↓
+↓
 Resolution
-
-
-
 
 ## Jaipur civic zones
 
 The current prototype contains four geographic civic zones.
 
-Zone	Name
-Zone 1	Pink City
-Zone 2	C-Scheme
-Zone 3	Civic Center
-Zone 4	Malviya Nagar
+Zone Name
+Zone 1 Pink City
+Zone 2 C-Scheme
+Zone 3 Civic Center
+Zone 4 Malviya Nagar
 
 Each zone contains:
 
@@ -460,11 +455,11 @@ CityPulse includes recognizable Jaipur landmarks as geographic context points.
 
 Current landmarks:
 
-Landmark	Associated Zone
-Hawa Mahal	Zone 1 — Pink City
-City Palace	Zone 1 — Pink City
-Jantar Mantar	Zone 1 — Pink City
-Albert Hall Museum	Zone 2 — C-Scheme
+Landmark Associated Zone
+Hawa Mahal Zone 1 — Pink City
+City Palace Zone 1 — Pink City
+Jantar Mantar Zone 1 — Pink City
+Albert Hall Museum Zone 2 — C-Scheme
 
 Landmarks are not treated as separate civic zones.
 
@@ -472,10 +467,8 @@ They use their own coordinates and are linked to the relevant civic zone through
 
 This allows users to understand civic conditions using recognizable real-world locations without changing the underlying zone model.
 
+## Setup
 
-
-
-##  Setup
 1. Create Supabase project
 
 Create a free Supabase project.
@@ -513,7 +506,7 @@ OPENAI_MODEL=gpt-4o-mini
 
 The OpenAI credentials are used only by the server-side AI explanation layer.
 
-Do not expose SUPABASE_SECRET_KEY or OPENAI_API_KEY through any NEXT_PUBLIC_* variable.
+Do not expose SUPABASE*SECRET_KEY or OPENAI_API_KEY through any NEXT_PUBLIC*\* variable.
 
 3. Install dependencies
 
@@ -523,8 +516,7 @@ yarn install
 
 or using npm:
 
-npm install
-4. Start the development server
+npm install 4. Start the development server
 
 Using Yarn:
 
@@ -536,8 +528,7 @@ npm run dev
 
 The Next.js development server will normally run at:
 
-http://localhost:3000
-5. Production build
+http://localhost:3000 5. Production build
 
 Build the application with:
 
@@ -548,8 +539,6 @@ or:
 npm run build
 
 The production build should complete successfully before deployment.
-
-
 
 ## Security
 
@@ -568,7 +557,7 @@ They must never be committed to GitHub.
 
 Only intentionally public configuration should use:
 
-NEXT_PUBLIC_*
+NEXT*PUBLIC*\*
 
 For Supabase, the publishable/anonymous client key can be used by the browser according to the project's RLS policies.
 
@@ -579,11 +568,11 @@ Supabase Row Level Security is enabled.
 The current architecture uses:
 
 Public/client reads
-        ↓
+↓
 Supabase RLS policies
 
 Server-side writes
-        ↓
+↓
 Server-only Supabase secret key
 
 ## Environment file protection
@@ -595,9 +584,8 @@ Recommended .gitignore entries:
 .env
 .env.*
 !.env.example
-*token.json*
-*credentials.json*
-
+*token.json\*
+_credentials.json_
 
 ## Data privacy
 
@@ -610,11 +598,11 @@ GitHub is the source of truth for the project.
 Recommended workflow:
 
 Local VS Code
-      ↓
+↓
 Git
-      ↓
+↓
 GitHub
-      ↓
+↓
 Vercel
 
 Check the current state:
@@ -642,13 +630,13 @@ CityPulse is designed for deployment using Vercel.
 Deployment flow:
 
 GitHub Repository
-        ↓
+↓
 Vercel Project
-        ↓
+↓
 Configure Environment Variables
-        ↓
+↓
 Production Build
-        ↓
+↓
 Deployment
 
 Required production environment variables:
@@ -661,36 +649,34 @@ OPENAI_MODEL
 
 The .env file itself must never be uploaded to the repository.
 
-
-
 ## Project structure
 
 citypulse/
 │
 ├── app/
-│   ├── api/
-│   │   └── [[...path]]/
-│   │       └── route.js
-│   │
-│   ├── page.js
-│   └── layout.js
+│ ├── api/
+│ │ └── [[...path]]/
+│ │ └── route.js
+│ │
+│ ├── page.js
+│ └── layout.js
 │
 ├── components/
-│   ├── civic/
-│   │   └── CivicMap.jsx
-│   │
-│   └── ui/
+│ ├── civic/
+│ │ └── CivicMap.jsx
+│ │
+│ └── ui/
 │
 ├── lib/
-│   ├── civic/
-│   │   ├── config.js
-│   │   ├── synthetic.js
-│   │   ├── intelligence.js
-│   │   ├── ai.js
-│   │   └── store.js
-│   │
-│   └── supabase/
-│       └── server.js
+│ ├── civic/
+│ │ ├── config.js
+│ │ ├── synthetic.js
+│ │ ├── intelligence.js
+│ │ ├── ai.js
+│ │ └── store.js
+│ │
+│ └── supabase/
+│ └── server.js
 │
 ├── public/
 │
@@ -701,10 +687,8 @@ citypulse/
 ├── package.json
 └── README.md
 
-
-
-
 ## Core modules
+
 lib/civic/config.js
 
 Contains:
@@ -780,64 +764,55 @@ Civic event markers
 Map interactions
 Geographic visualization
 
-
-
 Architecture overview
-                 ┌─────────────────────────────┐
-                 │       CITYPULSE UI          │
-                 │     Next.js + React         │
-                 └─────────────┬───────────────┘
-                               │
-                               ▼
-                 ┌─────────────────────────────┐
-                 │       API / Server          │
-                 │     Next.js API Routes      │
-                 └─────────────┬───────────────┘
-                               │
-             ┌─────────────────┼─────────────────┐
-             │                 │                 │
-             ▼                 ▼                 ▼
-     ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-     │ Civic Data    │ │ Intelligence  │ │ AI Explanation│
-     │ Adapters      │ │ Engine        │ │ Layer         │
-     └───────┬───────┘ └───────┬───────┘ └───────┬───────┘
-             │                 │                 │
-             └─────────────────┼─────────────────┘
-                               │
-                               ▼
-                 ┌─────────────────────────────┐
-                 │     Supabase PostgreSQL     │
-                 │       Civic Data Store      │
-                 └─────────────────────────────┘
-
-
-
+┌─────────────────────────────┐
+│ CITYPULSE UI │
+│ Next.js + React │
+└─────────────┬───────────────┘
+│
+▼
+┌─────────────────────────────┐
+│ API / Server │
+│ Next.js API Routes │
+└─────────────┬───────────────┘
+│
+┌─────────────────┼─────────────────┐
+│ │ │
+▼ ▼ ▼
+┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+│ Civic Data │ │ Intelligence │ │ AI Explanation│
+│ Adapters │ │ Engine │ │ Layer │
+└───────┬───────┘ └───────┬───────┘ └───────┬───────┘
+│ │ │
+└─────────────────┼─────────────────┘
+│
+▼
+┌─────────────────────────────┐
+│ Supabase PostgreSQL │
+│ Civic Data Store │
+└─────────────────────────────┘
 
 ## Intelligence pipeline
 
 Civic Signals
-      ↓
+↓
 Normalization
-      ↓
+↓
 CivicEvent
-      ↓
+↓
 Zone Aggregation
-      ↓
+↓
 Anomaly Detection
-      ↓
+↓
 Correlation Detection
-      ↓
+↓
 Confidence Calculation
-      ↓
+↓
 Civic Pulse
-      ↓
+↓
 Grounded AI Explanation
-      ↓
+↓
 Alerts + Dashboard
-
-
-
-
 
 ## Future scope
 
@@ -875,12 +850,12 @@ The current prototype is configured for Jaipur.
 The architecture can later support multiple cities:
 
 CityPulse
-   │
-   ├── Jaipur
-   ├── Delhi
-   ├── Mumbai
-   ├── Bengaluru
-   └── Hyderabad
+│
+├── Jaipur
+├── Delhi
+├── Mumbai
+├── Bengaluru
+└── Hyderabad
 
 Each city can define:
 
@@ -908,6 +883,7 @@ AI explanations are based on structured findings and are not independent verific
 The application is intended for civic awareness and decision support, not emergency dispatch or official emergency response.
 
 ## Core design principles
+
 Reliability first
 
 The MVP should remain demonstrable and functional without depending on optional external services.
@@ -941,27 +917,27 @@ New data providers and civic signal types should be possible without rewriting t
 The core CITYPULSE demonstration shows a complete end-to-end journey:
 
 Normal city
-     ↓
+↓
 Live civic change
-     ↓
+↓
 New event
-     ↓
+↓
 Signal stress
-     ↓
+↓
 Anomaly
-     ↓
+↓
 Multiple overlapping signals
-     ↓
+↓
 Possible correlation
-     ↓
+↓
 Evidence
-     ↓
+↓
 Confidence
-     ↓
+↓
 Grounded explanation
-     ↓
+↓
 Alert
-     ↓
+↓
 Human exploration
 
 This demonstrates the central value of CityPulse:
@@ -1003,49 +979,49 @@ Current implementation includes:
 The project follows an MVP-first development workflow:
 
 Problem Statement
-        ↓
+↓
 Requirements Breakdown
-        ↓
+↓
 MVP / Features
-        ↓
+↓
 Architecture
-        ↓
+↓
 UI / UX
-        ↓
+↓
 Backend
-        ↓
+↓
 Database
-        ↓
+↓
 Authentication / Security
-        ↓
+↓
 Integration
-        ↓
+↓
 Intelligence
-        ↓
+↓
 Advanced Features
-        ↓
+↓
 Testing
-        ↓
+↓
 Git / GitHub
-        ↓
+↓
 Deployment
-        ↓
+↓
 Demo
-        ↓
+↓
 Presentation
 
 The priority is:
 
 Reliability
-    ↓
+↓
 Core functionality
-    ↓
+↓
 Data correctness
-    ↓
+↓
 Intelligence
-    ↓
+↓
 User experience
-    ↓
+↓
 Advanced features
 
 ## Final project summary
@@ -1055,26 +1031,17 @@ CityPulse is a live civic intelligence and neighborhood health platform designed
 It combines:
 
 Weather
-+
-Traffic
-+
-Transit
-+
-Civic Events
-+
-Geographic Context
-+
-Anomaly Detection
-+
-Correlation Analysis
-+
-Evidence
-+
-Confidence Scoring
-+
-Grounded AI
-+
-Alerts
+
+- Traffic
+- Transit
+- Civic Events
+- Geographic Context
+- Anomaly Detection
+- Correlation Analysis
+- Evidence
+- Confidence Scoring
+- Grounded AI
+- Alerts
 
 into one application.
 
@@ -1085,4 +1052,7 @@ The architecture is designed to evolve toward real civic data, advanced analytic
 The core idea remains simple:
 
 See what's happening. Understand why it matters.
+
+```
+
 ```
