@@ -25,6 +25,12 @@ import {
   Sparkles,
   ShieldCheck,
   CircleDot,
+  Ambulance,
+  Hospital,
+  Users,
+  Thermometer,
+  Wind,
+  ArrowUpRight,
 } from "lucide-react";
 
 const CivicMap = dynamic(() => import("@/components/civic/CivicMap"), {
@@ -133,7 +139,7 @@ function PulseRing({ score }) {
     C = 2 * Math.PI * R;
   const off = C - (score / 100) * C;
   return (
-    <div className="relative h-48 w-48 shrink-0">
+    <div className="relative h-36 w-36 shrink-0 sm:h-48 sm:w-48">
       <svg viewBox="0 0 180 180" className="h-full w-full -rotate-90">
         <circle
           cx="90"
@@ -246,6 +252,284 @@ function Chip({ children, tone = "slate" }) {
   );
 }
 
+const LANDMARKS = [
+  {
+    name: "Hawa Mahal",
+    area: "Badi Chaupar · Pink City",
+    zone: "11111111-1111-1111-1111-111111111111",
+    crowd: "Busy",
+    crowdTone: "amber",
+  },
+  {
+    name: "Mansarovar",
+    area: "Metro corridor · West Jaipur",
+    zone: "22222222-2222-2222-2222-222222222222",
+    crowd: "Steady",
+    crowdTone: "sky",
+  },
+  {
+    name: "Amber Fort",
+    area: "Amer · North Jaipur",
+    zone: "33333333-3333-3333-3333-333333333333",
+    crowd: "Moderate",
+    crowdTone: "violet",
+  },
+  {
+    name: "City Palace",
+    area: "Jaleb Chowk · Pink City",
+    zone: "11111111-1111-1111-1111-111111111111",
+    crowd: "Busy",
+    crowdTone: "amber",
+  },
+];
+
+function eventAge(timestamp) {
+  const minutes = Math.max(
+    0,
+    Math.round((Date.now() - new Date(timestamp).getTime()) / 60000),
+  );
+  return minutes < 1 ? "Just now" : `${minutes} min ago`;
+}
+
+function landmarkStatus(landmark, snapshot) {
+  const zone = snapshot.zones.find((item) => item.zone.id === landmark.zone);
+  const signals = zone?.signals;
+  const traffic = signals?.traffic?.count || 0;
+  const weather = signals?.weather;
+  const trafficLabel = traffic >= 5 ? "Heavy" : traffic >= 3 ? "Slow" : "Clear";
+  const weatherLabel = weather?.rainfall >= 4 ? "Rain watch" : "Clear skies";
+  const advisory =
+    traffic >= 5
+      ? "Allow extra travel time"
+      : traffic >= 3
+        ? "Expect short delays"
+        : "No active advisories";
+  return { trafficLabel, weatherLabel, advisory, signals, zone };
+}
+
+function LiveIncidentStrip({ snapshot }) {
+  const incidents = (snapshot.events || [])
+    .filter(
+      (event) =>
+        event.status === "active" &&
+        (event.source !== "weather" || event.severity !== "low"),
+    )
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .slice(0, 8);
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-sky-500/25 bg-slate-900/70 lg:col-span-3">
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
+          <Radio className="h-4 w-4 text-rose-400" /> Live incident wire
+        </div>
+        <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300">
+          Updating every 4s
+        </span>
+        <span className="ml-auto text-xs text-slate-500">
+          {incidents.length} active updates
+        </span>
+      </div>
+      <div className="flex snap-x gap-3 overflow-x-auto p-3">
+        {incidents.length ? (
+          incidents.map((event) => {
+            const severity = sev(event.severity);
+            const zone = snapshot.zones.find(
+              (item) => item.zone.id === event.zone_id,
+            );
+            return (
+              <div
+                key={event.id}
+                className="min-w-[245px] snap-start rounded-xl border border-slate-800 bg-slate-950/70 p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider ${severity.text}`}
+                  >
+                    {severity.label}
+                  </span>
+                  <span className="text-[11px] tabular-nums text-slate-500">
+                    {eventAge(event.timestamp)}
+                  </span>
+                </div>
+                <div className="mt-2 truncate text-sm font-semibold text-slate-100">
+                  {event.title}
+                </div>
+                <div className="mt-1 truncate text-xs text-slate-400">
+                  {zone?.zone.name || "Jaipur"} · {event.description}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="px-2 py-2 text-sm text-slate-500">
+            No active incidents in the live wire.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MedicalResponse({ snapshot }) {
+  const medicalEvents = (snapshot.events || [])
+    .filter(
+      (event) =>
+        event.status === "active" &&
+        (event.source === "medical" ||
+          event.event_type === "medical" ||
+          /ambulance|medical|injur|collision|emergency/i.test(
+            `${event.title} ${event.description}`,
+          )),
+    )
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const highSeverity = (snapshot.events || []).filter(
+    (event) => event.status === "active" && event.severity === "high",
+  ).length;
+  const activeCases = medicalEvents.length;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-rose-500/25 bg-rose-500/[0.04] p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-rose-300">
+            <Ambulance className="h-5 w-5" />
+            <span className="text-sm font-bold uppercase tracking-wide">
+              Medical response watch
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Emergency-related activity from the live incident stream.
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-extrabold tabular-nums text-rose-300">
+            {activeCases}
+          </div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-500">
+            active cases
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+          <Hospital className="mb-1 h-4 w-4 text-sky-300" />
+          <span className="text-slate-400">Nearest response</span>
+          <div className="mt-1 font-semibold text-slate-200">SMS Hospital</div>
+        </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+          <Clock className="mb-1 h-4 w-4 text-amber-300" />
+          <span className="text-slate-400">High severity watch</span>
+          <div className="mt-1 font-semibold text-slate-200">
+            {highSeverity} active events
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 space-y-2">
+        {medicalEvents.slice(0, 2).map((event) => (
+          <div
+            key={event.id}
+            className="flex items-center justify-between gap-3 border-t border-slate-800 pt-2 text-xs"
+          >
+            <span className="truncate text-slate-300">{event.title}</span>
+            <span className="shrink-0 text-slate-500">
+              {eventAge(event.timestamp)}
+            </span>
+          </div>
+        ))}
+        {!medicalEvents.length && (
+          <div className="border-t border-slate-800 pt-2 text-xs text-emerald-300">
+            No active medical emergencies reported.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LandmarkGrid({ snapshot }) {
+  return (
+    <section className="lg:col-span-3">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+            Jaipur location watch
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Live conditions around the places people are visiting now.
+          </p>
+        </div>
+        <span className="hidden items-center gap-1 text-xs text-slate-500 sm:flex">
+          <RefreshCw className="h-3 w-3" /> Auto-refreshing
+        </span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {LANDMARKS.map((landmark) => {
+          const status = landmarkStatus(landmark, snapshot);
+          const weather = status.signals?.weather;
+          return (
+            <article
+              key={landmark.name}
+              className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4 transition-colors hover:border-slate-700"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-slate-100">
+                    {landmark.name}
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">{landmark.area}</p>
+                </div>
+                <ArrowUpRight className="h-4 w-4 text-slate-600" />
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-y-3 text-xs">
+                <div>
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <Car className="h-3 w-3" /> Traffic
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-200">
+                    {status.trafficLabel}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <Thermometer className="h-3 w-3" /> Weather
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-200">
+                    {weather?.event?.metadata?.temperature ?? "--"}°C ·{" "}
+                    {status.weatherLabel}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <Users className="h-3 w-3" /> Crowd
+                  </div>
+                  <div
+                    className={`mt-1 font-semibold ${sev(status.signals?.traffic?.severity).text}`}
+                  >
+                    {landmark.crowd}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <Wind className="h-3 w-3" /> Rainfall
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-200">
+                    {weather?.rainfall ?? 0} mm/h
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 border-t border-slate-800 pt-3 text-xs text-slate-400">
+                <span className="text-slate-500">Advisory: </span>
+                {status.advisory}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 /* ----------------------------- main app ----------------------------- */
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -278,9 +562,14 @@ function App() {
   const playRef = useRef(false);
 
   const fetchState = useCallback(async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
     try {
-      const r = await fetch("/api/state", { cache: "no-store" });
-      const d = await r.json();
+      const r = await fetch("/api/state", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || "Failed to load");
       const previousEvents = previousEventsRef.current;
 
@@ -329,8 +618,13 @@ function App() {
       setSnapshot(d);
       setErr(null);
     } catch (e) {
-      setErr(e.message);
+      setErr(
+        e.name === "AbortError"
+          ? "The civic data service did not respond within 12 seconds. Check that Supabase is configured and reachable."
+          : e.message || "Failed to load civic data",
+      );
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }, []);
@@ -434,8 +728,8 @@ function App() {
       )}
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
-          <div className="flex items-center gap-2">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-3 py-3 sm:flex-nowrap sm:px-4">
+          <div className="min-w-0 flex items-center gap-2">
             <button
               onClick={() => setMobileMenuOpen((v) => !v)}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 sm:hidden"
@@ -447,7 +741,7 @@ function App() {
               <Activity className="h-5 w-5 text-white" />
             </div>
             <div className="leading-tight">
-              <div className="text-lg font-extrabold tracking-tight">
+              <div className="truncate text-lg font-extrabold tracking-tight">
                 CITYPULSE
               </div>
               <div className="text-[11px] text-slate-400">
@@ -456,7 +750,7 @@ function App() {
             </div>
           </div>
 
-          <div className="ml-2 flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:ml-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -491,7 +785,7 @@ function App() {
             })}
           </div>
 
-          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+          <div className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
             <div className="mr-1 hidden text-xs text-slate-400 sm:block">
               Demo step{" "}
               <span className="font-bold text-slate-200">{step}/5</span>
@@ -499,7 +793,7 @@ function App() {
             <button
               onClick={doPlay}
               disabled={busy || playing}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50"
+              className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-violet-600 px-2 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50 sm:flex-none sm:px-3"
             >
               <Play className="h-4 w-4" />{" "}
               {playing ? "Playing…" : "Play Zone-3 Scenario"}
@@ -507,7 +801,7 @@ function App() {
             <button
               onClick={doAdvance}
               disabled={busy || playing || step >= 5}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40 sm:px-3"
             >
               <SkipForward className="h-4 w-4" /> Next
             </button>
@@ -666,7 +960,7 @@ function App() {
         </>
       )}
 
-      <main className="mx-auto max-w-[1400px] px-4 py-6">
+      <main className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4 sm:py-6">
         {loading && (
           <div className="flex h-64 items-center justify-center text-slate-400">
             <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading civic
@@ -759,6 +1053,7 @@ function Overview({
   const s = view.signals;
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <LiveIncidentStrip snapshot={snapshot} />
       {/* Hero pulse */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 lg:col-span-1">
         <div className="mb-4 flex items-center justify-between">
@@ -778,12 +1073,12 @@ function Overview({
             ))}
           </select>
         </div>
-        <div className="flex items-center gap-5">
-          <div className="flex min-w-[180px] flex-col items-center">
+        <div className="flex flex-col items-center gap-5 sm:flex-row">
+          <div className="flex w-full min-w-0 flex-col items-center sm:w-auto sm:min-w-[180px]">
             <PulseRing score={view.pulse.score} />
           </div>
 
-          <div className="flex-1 space-y-3">
+          <div className="w-full flex-1 space-y-3">
             <FactorBar label="Weather" value={f.weather} />
             <FactorBar label="Traffic" value={f.traffic} />
             <FactorBar label="Transit" value={f.transit} />
@@ -888,7 +1183,7 @@ function Overview({
         <div className="mt-4">
           {correlation ? (
             <div className="relative overflow-hidden rounded-2xl border border-sky-500/40 bg-gradient-to-br from-sky-500/10 to-violet-500/10 p-5">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
                 <div>
                   <div className="flex items-center gap-2 text-sky-300">
                     <Zap className="h-5 w-5" />
@@ -918,8 +1213,8 @@ function Overview({
                     </Chip>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-4xl font-extrabold text-sky-300">
+                <div className="self-end text-right sm:self-start">
+                  <div className="text-3xl font-extrabold text-sky-300 sm:text-4xl">
                     {correlation.confidence}%
                   </div>
                   <div className="text-[11px] uppercase tracking-widest text-slate-400">
@@ -927,7 +1222,7 @@ function Overview({
                   </div>
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-xs font-medium text-amber-300/90">
                   ⚠ Possible correlation — not confirmed causation.
                 </span>
@@ -953,6 +1248,8 @@ function Overview({
           )}
         </div>
 
+        <MedicalResponse snapshot={snapshot} />
+
         {insight && (
           <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
             <div className="mb-1 flex items-center gap-2 text-slate-300">
@@ -972,6 +1269,8 @@ function Overview({
           </div>
         )}
       </div>
+
+      <LandmarkGrid snapshot={snapshot} />
     </div>
   );
 }
@@ -1008,7 +1307,7 @@ function MapTab({
             </button>
           ))}
         </div>
-        <div className="h-[560px] rounded-xl border border-slate-800">
+        <div className="h-[min(560px,70vh)] min-h-[360px] rounded-xl border border-slate-800">
           <CivicMap
             snapshot={snapshot}
             layers={layers}
