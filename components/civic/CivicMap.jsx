@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
-import { CITY, LANDMARKS  } from '@/lib/civic/config'
+import { CITY } from '@/lib/civic/config'
 
 const SOURCE_COLOR = { weather: '#38bdf8', traffic: '#f59e0b', transit: '#a78bfa' }
 function pulseColor(score) {
@@ -9,7 +9,25 @@ function pulseColor(score) {
   return '#ef4444'
 }
 
-export default function CivicMap({ snapshot, layers, selectedZoneId, onSelectEvent }) {
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character])
+}
+
+export default function CivicMap({
+  snapshot,
+  layers,
+  selectedZoneId,
+  onSelectEvent,
+  places = [],
+  focusedPlace,
+  onSelectPlace,
+}) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const layerRef = useRef(null)
@@ -40,7 +58,16 @@ export default function CivicMap({ snapshot, layers, selectedZoneId, onSelectEve
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => { draw() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [snapshot, layers, selectedZoneId])
+  useEffect(() => { draw() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [snapshot, layers, selectedZoneId, places, focusedPlace])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !focusedPlace) return
+    const center = [focusedPlace.latitude, focusedPlace.longitude]
+    if (!center.every(Number.isFinite)) return
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    map.setView(center, Math.max(map.getZoom(), 15), { animate: !reducedMotion, duration: 0.6 })
+  }, [focusedPlace])
 
   function draw() {
     const L = LRef.current, map = mapRef.current, lg = layerRef.current
@@ -63,44 +90,25 @@ export default function CivicMap({ snapshot, layers, selectedZoneId, onSelectEve
         interactive: false,
       }).addTo(lg)
     }
-    // Jaipur landmark markers
-    for (const landmark of LANDMARKS) {
-      const zone = (snapshot.zones || []).find(
-        (zv) => zv.zone.id === landmark.zoneId
-      )
-
-      const marker = L.marker([landmark.latitude, landmark.longitude], {
-        icon: L.divIcon({
-          className: '',
-          html: `
-            <div style="
-              transform:translate(-50%,-50%);
-              display:flex;
-              align-items:center;
-              gap:5px;
-              white-space:nowrap;
-              font:600 11px Inter,sans-serif;
-              color:#f8fafc;
-              background:rgba(15,23,42,.92);
-              padding:4px 8px;
-              border-radius:8px;
-              border:1px solid rgba(56,189,248,.45);
-              box-shadow:0 4px 12px rgba(0,0,0,.35);
-            ">
-              <span style="color:#38bdf8;">◆</span>
-              ${landmark.name}
-            </div>
-          `,
-        }),
+    for (const place of places) {
+      if (!Number.isFinite(place.latitude) || !Number.isFinite(place.longitude)) continue
+      const color = place.category === 'hospital'
+        ? '#fb7185'
+        : place.category === 'area'
+          ? '#38bdf8'
+          : '#fbbf24'
+      const selected = focusedPlace?.name === place.name
+      const marker = L.circleMarker([place.latitude, place.longitude], {
+        radius: selected ? 8 : 5,
+        color,
+        weight: selected ? 2.5 : 1.5,
+        fillColor: color,
+        fillOpacity: selected ? 1 : 0.78,
       })
-
-      marker.bindTooltip(
-        `<b>${landmark.name}</b><br/>${landmark.description}<br/>${
-          zone ? `${zone.zone.label} · ${zone.zone.name} · Pulse ${zone.pulse.score}` : ''
-        }`,
-        { direction: 'top' }
-      )
-
+      marker.bindTooltip(`<b>${escapeHtml(place.name)}</b><br/>${escapeHtml(place.category)}`, {
+        direction: 'top',
+      })
+      marker.on('click', () => onSelectPlace?.(place))
       marker.addTo(lg)
     }
 

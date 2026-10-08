@@ -5,6 +5,14 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
+  Search,
+  Newspaper,
+  ExternalLink,
+  Languages,
+  LoaderCircle,
+  LocateFixed,
+  Building2,
+  MapPinned,
   CloudRain,
   Car,
   Bus,
@@ -28,9 +36,6 @@ import {
   CircleDot,
   Ambulance,
   Hospital,
-  Users,
-  Thermometer,
-  Wind,
   ArrowUpRight,
 } from "lucide-react";
 
@@ -84,7 +89,10 @@ function scopeView(snapshot, scope) {
     const zv = snapshot.zones.find((v) => v.zone.id === scope);
     if (zv)
       return {
-        pulse: zv.pulse,
+        pulse:
+          zv.eventCount === 0
+            ? { score: null, factors: { weather: null, traffic: null, transit: null, incidents: null } }
+            : zv.pulse,
         signals: zv.signals,
         correlation: zv.correlation,
       };
@@ -124,7 +132,10 @@ function scopeView(snapshot, scope) {
     },
   };
   return {
-    pulse: { score: snapshot.city.pulse, factors: snapshot.city.factors },
+    pulse:
+      snapshot.events.filter((event) => event.status === "active").length === 0
+        ? { score: null, factors: { weather: null, traffic: null, transit: null, incidents: null } }
+        : { score: snapshot.city.pulse, factors: snapshot.city.factors },
     signals: agg,
     correlation: null,
   };
@@ -136,9 +147,10 @@ const worst = (a) =>
 
 /* ----------------------------- small UI ----------------------------- */
 function PulseRing({ score }) {
+  const hasScore = Number.isFinite(score);
   const R = 76,
     C = 2 * Math.PI * R;
-  const off = C - (score / 100) * C;
+  const off = hasScore ? C - (score / 100) * C : C;
   return (
     <div className="relative h-36 w-36 shrink-0 sm:h-48 sm:w-48">
       <svg viewBox="0 0 180 180" className="h-full w-full -rotate-90">
@@ -154,7 +166,7 @@ function PulseRing({ score }) {
           cx="90"
           cy="90"
           r={R}
-          stroke={pulseStroke(score)}
+          stroke={hasScore ? pulseStroke(score) : "#334155"}
           strokeWidth="12"
           fill="none"
           strokeDasharray={C}
@@ -165,12 +177,12 @@ function PulseRing({ score }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <div
-          className={`text-5xl font-extrabold tabular-nums ${pulseColor(score)}`}
+          className={`text-5xl font-extrabold tabular-nums ${hasScore ? pulseColor(score) : "text-slate-400"}`}
         >
-          {score}
+          {hasScore ? score : "—"}
         </div>
         <div className="text-xs uppercase tracking-widest text-slate-500">
-          / 100
+          {hasScore ? "/ 100" : "NO DATA"}
         </div>
       </div>
     </div>
@@ -182,14 +194,14 @@ function FactorBar({ label, value }) {
     <div>
       <div className="mb-1 flex items-center justify-between text-xs">
         <span className="text-slate-400">{label}</span>
-        <span className={`font-semibold tabular-nums ${pulseColor(value)}`}>
-          {value}
+        <span className={`font-semibold tabular-nums ${Number.isFinite(value) ? pulseColor(value) : "text-slate-500"}`}>
+          {Number.isFinite(value) ? value : "—"}
         </span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
         <div
           className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${value}%`, background: pulseStroke(value) }}
+          style={{ width: `${Number.isFinite(value) ? value : 0}%`, background: Number.isFinite(value) ? pulseStroke(value) : "transparent" }}
         />
       </div>
     </div>
@@ -271,36 +283,328 @@ function Reveal({ children, className, delay = 0 }) {
   );
 }
 
-const LANDMARKS = [
-  {
-    name: "Hawa Mahal",
-    area: "Badi Chaupar · Pink City",
-    zone: "11111111-1111-1111-1111-111111111111",
-    crowd: "Busy",
-    crowdTone: "amber",
+const COPY = {
+  en: {
+    overview: "Overview",
+    map: "City atlas",
+    intelligence: "Intelligence",
+    events: "Events",
+    alerts: "Alerts",
+    replay: "Replay",
+    liveBriefing: "Live city briefing",
+    intelligenceDesk: "City intelligence",
+    cityTitle: "Jaipur, in real time",
+    cityDescription: "Local weather, city headlines, and civic signals—focused on the place you choose.",
+    monitoring: "Monitoring live",
+    searchPlaceholder: "Search a Jaipur area, landmark, or hospital",
+    searchHint: "Search any neighbourhood or place in Jaipur",
+    searching: "Searching Jaipur…",
+    noResults: "No matching Jaipur places found.",
+    chooseArea: "Choose an area to focus your briefing",
+    selectedArea: "Area briefing",
+    observedWeather: "Current weather",
+    temperature: "Temperature",
+    rain: "Rain",
+    wind: "Wind",
+    recentHeadlines: "Recent local headlines",
+    incidentsInNews: "Incident-related news mentions",
+    noHeadlines: "No recent headlines were found for this place.",
+    liveTraffic: "Live road traffic",
+    trafficNotConfigured: "Traffic provider not configured",
+    trafficSetup: "Configure TOMTOM_API_KEY on the server to enable live road speeds.",
+    trafficUnavailable: "No traffic reading is available for this location right now.",
+    placeAtlas: "Jaipur places & neighbourhoods",
+    placeAtlasDescription: "Browse mapped neighbourhoods, hospitals, and notable places from OpenStreetMap.",
+    allPlaces: "All places",
+    popularPlaces: "Places across Jaipur",
+    area: "Area",
+    areas: "Areas",
+    hospitals: "Hospitals",
+    landmarks: "Landmarks",
+    loadingPlaces: "Loading Jaipur places…",
+    noPlaces: "No mapped places were returned. Try searching for a specific location.",
+    sourceNote: "OpenStreetMap place data · © OpenStreetMap contributors",
+    simulatedDemo: "Play demo scenario",
+    noSignalData: "No civic reports recorded",
+    noSignalDetail: "CityPulse has no current incident feed for this area. Weather, traffic, and news below come from separate live public sources.",
+    scenarioPulseNote: "When present, this score is calculated only from CityPulse's recorded or demo scenario events. It is not a citywide safety rating.",
+    nextStep: "Next",
+    scenarioStep: "Demo step",
+    sourceUnavailable: "This source is temporarily unavailable.",
   },
-  {
-    name: "Mansarovar",
-    area: "Metro corridor · West Jaipur",
-    zone: "22222222-2222-2222-2222-222222222222",
-    crowd: "Steady",
-    crowdTone: "sky",
+  hi: {
+    overview: "अवलोकन",
+    map: "शहर मानचित्र",
+    intelligence: "विश्लेषण",
+    events: "घटनाएँ",
+    alerts: "अलर्ट",
+    replay: "रीप्ले",
+    liveBriefing: "शहर की ताज़ा जानकारी",
+    intelligenceDesk: "शहर विश्लेषण",
+    cityTitle: "जयपुर, हर पल",
+    cityDescription: "आपके चुने हुए क्षेत्र का मौसम, शहर की खबरें और नागरिक संकेत।",
+    monitoring: "लाइव निगरानी",
+    searchPlaceholder: "जयपुर का क्षेत्र, प्रसिद्ध जगह या अस्पताल खोजें",
+    searchHint: "जयपुर का कोई भी इलाका या जगह खोजें",
+    searching: "जयपुर में खोज रहे हैं…",
+    noResults: "जयपुर में कोई मेल खाती जगह नहीं मिली।",
+    chooseArea: "जानकारी देखने के लिए क्षेत्र चुनें",
+    selectedArea: "क्षेत्र की जानकारी",
+    observedWeather: "मौजूदा मौसम",
+    temperature: "तापमान",
+    rain: "बारिश",
+    wind: "हवा",
+    recentHeadlines: "हाल की स्थानीय खबरें",
+    incidentsInNews: "खबरों में घटना संबंधी उल्लेख",
+    noHeadlines: "इस जगह के लिए हाल की खबरें नहीं मिलीं।",
+    liveTraffic: "सड़क यातायात",
+    trafficNotConfigured: "यातायात सेवा सेट नहीं है",
+    trafficSetup: "लाइव सड़क गति के लिए सर्वर पर TOMTOM_API_KEY सेट करें।",
+    trafficUnavailable: "अभी इस जगह के लिए यातायात जानकारी उपलब्ध नहीं है।",
+    placeAtlas: "जयपुर के क्षेत्र और प्रमुख जगहें",
+    placeAtlasDescription: "OpenStreetMap से क्षेत्र, अस्पताल और दर्शनीय स्थल देखें।",
+    allPlaces: "सभी जगहें",
+    popularPlaces: "जयपुर की प्रमुख जगहें",
+    area: "क्षेत्र",
+    areas: "क्षेत्र",
+    hospitals: "अस्पताल",
+    landmarks: "प्रमुख स्थल",
+    loadingPlaces: "जयपुर की जगहें लोड हो रही हैं…",
+    noPlaces: "मानचित्र पर जगहें नहीं मिलीं। कोई स्थान खोजकर देखें।",
+    sourceNote: "OpenStreetMap स्थान डेटा · © OpenStreetMap योगदानकर्ता",
+    simulatedDemo: "डेमो परिदृश्य चलाएँ",
+    noSignalData: "नागरिक रिपोर्ट उपलब्ध नहीं",
+    noSignalDetail: "इस क्षेत्र के लिए CityPulse में अभी घटना फ़ीड नहीं है। नीचे का मौसम, यातायात और समाचार अलग सार्वजनिक स्रोतों से हैं।",
+    scenarioPulseNote: "यह स्कोर केवल CityPulse में दर्ज या डेमो परिदृश्य की घटनाओं से निकलता है; यह पूरे शहर की सुरक्षा रेटिंग नहीं है।",
+    nextStep: "अगला",
+    scenarioStep: "डेमो चरण",
+    sourceUnavailable: "यह स्रोत अभी उपलब्ध नहीं है।",
   },
-  {
-    name: "Amber Fort",
-    area: "Amer · North Jaipur",
-    zone: "33333333-3333-3333-3333-333333333333",
-    crowd: "Moderate",
-    crowdTone: "violet",
-  },
-  {
-    name: "City Palace",
-    area: "Jaleb Chowk · Pink City",
-    zone: "11111111-1111-1111-1111-111111111111",
-    crowd: "Busy",
-    crowdTone: "amber",
-  },
-];
+};
+
+function copy(language, key) {
+  return COPY[language]?.[key] || COPY.en[key] || key;
+}
+
+function CityAreaSearch({ language, onChoose }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+
+  useEffect(() => {
+    const value = query.trim();
+    if (value.length < 3) {
+      setResults([]);
+      setSearching(false);
+      setSearchError("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      setSearchError("");
+      try {
+        const response = await fetch(`/api/jaipur/search?q=${encodeURIComponent(value)}`, {
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Place search is unavailable.");
+        setResults(data);
+      } catch (error) {
+        if (error.name !== "AbortError") setSearchError(error.message);
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 550);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
+
+  return (
+    <div className="relative z-10 w-full">
+      <form
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (results[0]) {
+            onChoose(results[0]);
+            setQuery(results[0].name);
+            setResults([]);
+          }
+        }}
+        className="flex items-center gap-3 rounded-2xl border border-slate-700/80 bg-slate-900/85 p-2 shadow-xl shadow-black/20 transition focus-within:border-sky-500/60 focus-within:ring-2 focus-within:ring-sky-500/15"
+      >
+        <Search className="ml-2 h-5 w-5 shrink-0 text-sky-300" aria-hidden="true" />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={copy(language, "searchPlaceholder")}
+          aria-label={copy(language, "searchPlaceholder")}
+          aria-autocomplete="list"
+          aria-controls="jaipur-place-results"
+          className="min-w-0 flex-1 bg-transparent py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+          maxLength={80}
+        />
+        {searching && <LoaderCircle className="h-4 w-4 animate-spin text-sky-300" aria-label={copy(language, "searching")} />}
+        <span className="hidden pr-3 text-[11px] text-slate-500 sm:inline">{copy(language, "searchHint")}</span>
+      </form>
+      {(results.length > 0 || (query.trim().length >= 3 && !searching && searchError)) && (
+        <div
+          id="jaipur-place-results"
+          role="listbox"
+          className="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
+        >
+          {searchError ? (
+            <p className="px-4 py-3 text-sm text-rose-300">{searchError}</p>
+          ) : results.length ? (
+            results.map((place) => (
+              <button
+                type="button"
+                role="option"
+                aria-selected="false"
+                key={place.id}
+                onClick={() => {
+                  onChoose(place);
+                  setQuery(place.name);
+                  setResults([]);
+                }}
+                className="flex w-full items-start gap-3 border-b border-slate-800 px-4 py-3 text-left last:border-0 hover:bg-slate-800"
+              >
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
+                <span className="min-w-0">
+                  <span className="block font-medium text-slate-100">{place.name}</span>
+                  <span className="mt-0.5 block truncate text-xs text-slate-400">{place.displayName}</span>
+                </span>
+              </button>
+            ))
+          ) : (
+            <p className="px-4 py-3 text-sm text-slate-400">{copy(language, "noResults")}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AreaBriefing({ area, briefing, loading, error, language }) {
+  const weather = briefing?.weather;
+  const traffic = briefing?.traffic;
+  const news = briefing?.news;
+  const weatherCondition =
+    language === "hi"
+      ? {
+          "Clear sky": "साफ आसमान",
+          "Mainly clear": "मुख्यतः साफ",
+          "Partly cloudy": "आंशिक बादल",
+          Overcast: "बादल छाए",
+          Fog: "कोहरा",
+          Drizzle: "बूंदाबांदी",
+          Rain: "बारिश",
+          Snow: "बर्फ़बारी",
+          Thunderstorm: "आंधी-तूफ़ान",
+        }[weather?.condition] || weather?.condition
+      : weather?.condition;
+
+  return (
+    <section className="cp-panel mb-6 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/65">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-5 py-4">
+        <div className="min-w-0">
+          <p className="cp-eyebrow">{copy(language, "selectedArea")}</p>
+          <h2 className="mt-1 truncate text-lg font-semibold text-white">{area.name}</h2>
+        </div>
+        <span className="inline-flex items-center gap-2 text-xs text-slate-400">
+          {loading ? (
+            <LoaderCircle className="h-3.5 w-3.5 animate-spin text-sky-300" />
+          ) : (
+            <span className={`h-1.5 w-1.5 rounded-full ${briefing ? "bg-emerald-400" : "bg-amber-400"}`} />
+          )}
+          {loading ? copy(language, "searching") : briefing ? `${briefing.area.name} · ${fmtTime(briefing.asOf)}` : copy(language, "sourceUnavailable")}
+        </span>
+      </div>
+      {error && <p role="status" className="px-5 pt-4 text-sm text-amber-300">{error}</p>}
+      <div className="grid grid-cols-1 gap-px bg-slate-800/80 md:grid-cols-3">
+        <section className="bg-slate-900/70 p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+            <CloudRain className="h-4 w-4 text-sky-300" />
+            {copy(language, "observedWeather")}
+          </div>
+          {weather?.status === "live" ? (
+            <>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-4xl font-semibold tracking-tight text-white">{weather.temperatureC}°</span>
+                <span className="text-sm text-slate-400">{weatherCondition}</span>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                <div><span className="block text-slate-500">{copy(language, "temperature")}</span><b className="mt-1 block text-slate-200">{weather.feelsLikeC}°C feels like</b></div>
+                <div><span className="block text-slate-500">{copy(language, "rain")}</span><b className="mt-1 block text-slate-200">{weather.precipitationMm} mm</b></div>
+                <div><span className="block text-slate-500">{copy(language, "wind")}</span><b className="mt-1 block text-slate-200">{weather.windKph} km/h</b></div>
+              </div>
+              <p className="mt-4 text-[11px] text-slate-500">{weather.attribution} · {fmtTime(weather.observedAt)}</p>
+            </>
+          ) : <p className="mt-4 text-sm text-slate-400">{weather?.message || copy(language, "sourceUnavailable")}</p>}
+        </section>
+        <section className="bg-slate-900/70 p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+            <Newspaper className="h-4 w-4 text-violet-300" />
+            {copy(language, "recentHeadlines")}
+          </div>
+          {news?.status === "live" ? (
+            <div className="mt-3 space-y-2">
+              {news.news.slice(0, 4).map((item) => (
+                <a
+                  key={item.url}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex gap-2 rounded-lg border border-transparent px-2 py-2 text-sm leading-snug text-slate-300 transition hover:border-slate-700 hover:bg-slate-800/70 hover:text-white"
+                >
+                  <span className="line-clamp-2 flex-1">{item.title}</span>
+                  <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500 group-hover:text-sky-300" />
+                </a>
+              ))}
+              {!news.news.length && <p className="px-2 py-2 text-sm text-slate-400">{copy(language, "noHeadlines")}</p>}
+            </div>
+          ) : <p className="mt-4 text-sm text-slate-400">{news?.message || copy(language, "sourceUnavailable")}</p>}
+          <p className="mt-3 px-2 text-[11px] text-slate-500">{news?.attribution || "Google News RSS · headlines link to publishers"}</p>
+          {briefing?.incidents?.length > 0 && (
+            <div className="mt-3 border-t border-slate-800 pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-300">{copy(language, "incidentsInNews")}</p>
+              {briefing.incidents.slice(0, 2).map((item) => <p key={item.url} className="mt-2 line-clamp-2 text-xs text-slate-300">{item.title}</p>)}
+            </div>
+          )}
+        </section>
+        <section className="bg-slate-900/70 p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+            <Car className="h-4 w-4 text-amber-300" />
+            {copy(language, "liveTraffic")}
+          </div>
+          {traffic?.status === "live" ? (
+            <>
+              <div className="mt-4 text-4xl font-semibold tracking-tight text-white">{traffic.currentSpeedKph}<span className="ml-1 text-base font-medium text-slate-400">km/h</span></div>
+              <p className="mt-2 text-sm text-slate-400">Free-flow {traffic.freeFlowSpeedKph} km/h · {Math.round(traffic.confidence * 100)}% provider confidence</p>
+              <p className="mt-3 text-[11px] text-slate-500">{traffic.source} · nearest road segment</p>
+            </>
+          ) : traffic?.status === "not_configured" ? (
+            <>
+              <p className="mt-4 text-sm text-amber-200">{copy(language, "trafficNotConfigured")}</p>
+              <p className="mt-2 text-xs leading-relaxed text-slate-400">{copy(language, "trafficSetup")}</p>
+            </>
+          ) : (
+            <p className="mt-4 text-sm text-slate-400">{traffic?.message || copy(language, "trafficUnavailable")}</p>
+          )}
+          <p className="mt-4 border-t border-slate-800 pt-3 text-[11px] text-slate-500">
+            Traffic reports and nearby event mentions are not emergency dispatch data.
+          </p>
+        </section>
+      </div>
+    </section>
+  );
+}
 
 function eventAge(timestamp) {
   const minutes = Math.max(
@@ -308,22 +612,6 @@ function eventAge(timestamp) {
     Math.round((Date.now() - new Date(timestamp).getTime()) / 60000),
   );
   return minutes < 1 ? "Just now" : `${minutes} min ago`;
-}
-
-function landmarkStatus(landmark, snapshot) {
-  const zone = snapshot.zones.find((item) => item.zone.id === landmark.zone);
-  const signals = zone?.signals;
-  const traffic = signals?.traffic?.count || 0;
-  const weather = signals?.weather;
-  const trafficLabel = traffic >= 5 ? "Heavy" : traffic >= 3 ? "Slow" : "Clear";
-  const weatherLabel = weather?.rainfall >= 4 ? "Rain watch" : "Clear skies";
-  const advisory =
-    traffic >= 5
-      ? "Allow extra travel time"
-      : traffic >= 3
-        ? "Expect short delays"
-        : "No active advisories";
-  return { trafficLabel, weatherLabel, advisory, signals, zone };
 }
 
 function LiveIncidentStrip({ snapshot }) {
@@ -340,10 +628,10 @@ function LiveIncidentStrip({ snapshot }) {
     <section className="cp-panel overflow-hidden rounded-2xl border border-sky-500/25 bg-slate-900/70 lg:col-span-3">
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
-          <Radio className="h-4 w-4 text-rose-400" /> Live incident wire
+          <Radio className="h-4 w-4 text-rose-400" /> Civic event wire
         </div>
         <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300">
-          Updating every 4s
+          Demo / recorded events
         </span>
         <span className="ml-auto text-xs text-slate-500">
           {incidents.length} active updates
@@ -390,7 +678,7 @@ function LiveIncidentStrip({ snapshot }) {
   );
 }
 
-function MedicalResponse({ snapshot }) {
+function MedicalResponse({ snapshot, places, focusedArea }) {
   const medicalEvents = (snapshot.events || [])
     .filter(
       (event) =>
@@ -406,6 +694,19 @@ function MedicalResponse({ snapshot }) {
     (event) => event.status === "active" && event.severity === "high",
   ).length;
   const activeCases = medicalEvents.length;
+  const nearestHospital = places
+    .filter((place) => place.category === "hospital")
+    .reduce((nearest, place) => {
+      const distance = Math.hypot(
+        (place.latitude - focusedArea.latitude) * 111.32,
+        (place.longitude - focusedArea.longitude) *
+          111.32 *
+          Math.cos((focusedArea.latitude * Math.PI) / 180),
+      );
+      return !nearest || distance < nearest.distance
+        ? { place, distance }
+        : nearest;
+    }, null);
 
   return (
     <div className="cp-panel mt-4 rounded-2xl border border-rose-500/25 bg-rose-500/[0.04] p-5">
@@ -418,7 +719,7 @@ function MedicalResponse({ snapshot }) {
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Emergency-related activity from the live incident stream.
+            Event mentions from stored civic reports; this is not an emergency dispatch service.
           </p>
         </div>
         <div className="text-right">
@@ -434,7 +735,14 @@ function MedicalResponse({ snapshot }) {
         <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
           <Hospital className="mb-1 h-4 w-4 text-sky-300" />
           <span className="text-slate-400">Nearest response</span>
-          <div className="mt-1 font-semibold text-slate-200">SMS Hospital</div>
+          <div className="mt-1 font-semibold text-slate-200">
+            {nearestHospital?.place.name || "No mapped hospital nearby"}
+          </div>
+          {nearestHospital && (
+            <div className="mt-1 text-[10px] text-slate-500">
+              Approx. {nearestHospital.distance.toFixed(1)} km · OpenStreetMap
+            </div>
+          )}
         </div>
         <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
           <Clock className="mb-1 h-4 w-4 text-amber-300" />
@@ -458,7 +766,7 @@ function MedicalResponse({ snapshot }) {
         ))}
         {!medicalEvents.length && (
           <div className="border-t border-slate-800 pt-2 text-xs text-emerald-300">
-            No active medical emergencies reported.
+            No emergency-related reports in this dataset.
           </div>
         )}
       </div>
@@ -466,85 +774,56 @@ function MedicalResponse({ snapshot }) {
   );
 }
 
-function LandmarkGrid({ snapshot }) {
+function LandmarkGrid({ places, loading, onSelectPlace, language }) {
+  const notablePlaces = places
+    .filter((place) => place.category !== "area")
+    .slice(0, 8);
   return (
     <section className="lg:col-span-3">
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Jaipur location watch
-          </div>
-          <p className="mt-1 text-sm text-slate-500">
-            Live conditions around the places people are visiting now.
-          </p>
+          <div className="cp-eyebrow">{copy(language, "popularPlaces")}</div>
+          <p className="mt-1 text-sm text-slate-500">{copy(language, "placeAtlasDescription")}</p>
         </div>
         <span className="hidden items-center gap-1 text-xs text-slate-500 sm:flex">
-          <RefreshCw className="h-3 w-3" /> Auto-refreshing
+          <MapPin className="h-3 w-3" /> © OpenStreetMap
         </span>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {LANDMARKS.map((landmark) => {
-          const status = landmarkStatus(landmark, snapshot);
-          const weather = status.signals?.weather;
-          return (
-            <article
-              key={landmark.name}
-              className="cp-panel rounded-2xl border border-slate-800 bg-slate-900/55 p-4 transition-colors hover:border-slate-700"
+      {loading ? (
+        <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 p-5 text-sm text-slate-400">
+          <LoaderCircle className="h-4 w-4 animate-spin text-sky-300" />
+          {copy(language, "loadingPlaces")}
+        </div>
+      ) : notablePlaces.length ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {notablePlaces.map((place) => (
+            <button
+              type="button"
+              key={place.id}
+              onClick={() => onSelectPlace(place)}
+              className="cp-panel rounded-2xl border border-slate-800 bg-slate-900/55 p-4 text-left hover:border-sky-500/30"
             >
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold text-slate-100">
-                    {landmark.name}
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-500">{landmark.area}</p>
+                <div className="min-w-0">
+                  <h3 className="truncate font-semibold text-slate-100">{place.name}</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {copy(language, place.category === "hospital" ? "hospitals" : "landmarks")}
+                  </p>
                 </div>
-                <ArrowUpRight className="h-4 w-4 text-slate-600" />
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-600" />
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-y-3 text-xs">
-                <div>
-                  <div className="flex items-center gap-1 text-slate-500">
-                    <Car className="h-3 w-3" /> Traffic
-                  </div>
-                  <div className="mt-1 font-semibold text-slate-200">
-                    {status.trafficLabel}
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center gap-1 text-slate-500">
-                    <Thermometer className="h-3 w-3" /> Weather
-                  </div>
-                  <div className="mt-1 font-semibold text-slate-200">
-                    {weather?.event?.metadata?.temperature ?? "--"}°C ·{" "}
-                    {status.weatherLabel}
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center gap-1 text-slate-500">
-                    <Users className="h-3 w-3" /> Crowd
-                  </div>
-                  <div
-                    className={`mt-1 font-semibold ${sev(status.signals?.traffic?.severity).text}`}
-                  >
-                    {landmark.crowd}
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center gap-1 text-slate-500">
-                    <Wind className="h-3 w-3" /> Rainfall
-                  </div>
-                  <div className="mt-1 font-semibold text-slate-200">
-                    {weather?.rainfall ?? 0} mm/h
-                  </div>
-                </div>
+              <div className="mt-4 flex items-center gap-2 border-t border-slate-800 pt-3 text-xs text-slate-400">
+                <MapPin className="h-3.5 w-3.5 text-sky-300" />
+                {place.address || `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`}
               </div>
-              <div className="mt-4 border-t border-slate-800 pt-3 text-xs text-slate-400">
-                <span className="text-slate-500">Advisory: </span>
-                {status.advisory}
-              </div>
-            </article>
-          );
-        })}
-      </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-xl border border-slate-800 p-4 text-sm text-slate-400">
+          {copy(language, "noPlaces")}
+        </p>
+      )}
     </section>
   );
 }
@@ -572,6 +851,20 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState(null);
   const [activity, setActivity] = useState([]);
+  const [language, setLanguage] = useState("en");
+  const [focusedArea, setFocusedArea] = useState({
+    name: "Jaipur",
+    latitude: 26.9124,
+    longitude: 75.7873,
+    source: "City centre",
+  });
+  const [areaBriefing, setAreaBriefing] = useState(null);
+  const [areaLoading, setAreaLoading] = useState(false);
+  const [areaError, setAreaError] = useState("");
+  const [cityPlaces, setCityPlaces] = useState([]);
+  const [placesLoading, setPlacesLoading] = useState(false);
+  const [placesError, setPlacesError] = useState("");
+  const placesRequestedRef = useRef(false);
   const previousEventsRef = useRef(new Map());
   const [layers, setLayers] = useState({
     weather: true,
@@ -580,6 +873,92 @@ function App() {
     anomalies: true,
   });
   const playRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      const savedLanguage = window.localStorage.getItem("citypulse-language");
+      if (savedLanguage === "hi" || savedLanguage === "en") {
+        setLanguage(savedLanguage);
+      }
+    } catch (error) {
+      console.warn("Language preference could not be restored.", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("citypulse-language", language);
+    } catch (error) {
+      console.warn("Language preference could not be saved.", error);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    if (!focusedArea) return undefined;
+    const controller = new AbortController();
+    let mounted = true;
+    const refreshBriefing = async () => {
+      setAreaLoading(true);
+      try {
+        const params = new URLSearchParams({
+          lat: String(focusedArea.latitude),
+          lon: String(focusedArea.longitude),
+          name: focusedArea.name,
+          language,
+        });
+        const response = await fetch(`/api/jaipur/area?${params}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load this area.");
+        if (mounted) {
+          setAreaBriefing(data);
+          setAreaError("");
+        }
+      } catch (error) {
+        if (mounted && error.name !== "AbortError") {
+          setAreaError(error.message || copy(language, "sourceUnavailable"));
+        }
+      } finally {
+        if (mounted) setAreaLoading(false);
+      }
+    };
+    refreshBriefing();
+    const interval = setInterval(refreshBriefing, 5 * 60_000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      controller.abort();
+    };
+  }, [focusedArea, language]);
+
+  useEffect(() => {
+    if (placesRequestedRef.current) return undefined;
+    const controller = new AbortController();
+    placesRequestedRef.current = true;
+    setPlacesLoading(true);
+    fetch("/api/jaipur/places?group=all", { signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load Jaipur places.");
+        if (controller.signal.aborted) return;
+        setCityPlaces(data.places || []);
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          setPlacesError(error.message || copy(language, "sourceUnavailable"));
+          placesRequestedRef.current = false;
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPlacesLoading(false);
+      });
+    return () => {
+      controller.abort();
+      if (!cityPlaces.length) placesRequestedRef.current = false;
+    };
+  }, [cityPlaces.length]);
 
   const fetchState = useCallback(async () => {
     const controller = new AbortController();
@@ -640,7 +1019,7 @@ function App() {
     } catch (e) {
       setErr(
         e.name === "AbortError"
-          ? "The civic data service did not respond within 12 seconds. Check that Supabase is configured and reachable."
+          ? "The civic data service did not respond within 12 seconds."
           : e.message || "Failed to load civic data",
       );
     } finally {
@@ -669,31 +1048,6 @@ function App() {
       setBusy(false);
     }
   }
-  async function doGenerateLiveEvent() {
-    setBusy(true);
-    try {
-      const r = await fetch("/api/live-event", { method: "POST" });
-      const d = await r.json();
-
-      if (!r.ok) throw new Error(d.error || "Failed to generate event");
-
-      flash("Live event generated");
-      await fetchState();
-    } catch (e) {
-      flash(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  useEffect(() => {
-    if (playing) return;
-
-    const id = setInterval(() => {
-      doGenerateLiveEvent();
-    }, 10000);
-
-    return () => clearInterval(id);
-  }, [playing]);
   async function doAdvance() {
     setBusy(true);
     try {
@@ -733,6 +1087,20 @@ function App() {
     [snapshot],
   );
   const step = snapshot?.step ?? 0;
+  const chooseArea = (place) => {
+    setAreaBriefing(null);
+    setAreaError("");
+    setFocusedArea({
+      name: place.name,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      source: place.source || "OpenStreetMap",
+    });
+  };
+  const setDashboardLanguage = (nextLanguage) => {
+    setLanguage(nextLanguage);
+    document.documentElement.lang = nextLanguage;
+  };
 
   return (
     <div
@@ -771,12 +1139,10 @@ function App() {
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:ml-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/[0.07] px-2.5 py-1 text-xs font-semibold text-emerald-300">
+              <span className={`h-1.5 w-1.5 rounded-full ${areaBriefing?.weather?.status === "live" || areaBriefing?.news?.status === "live" ? "bg-emerald-400" : "bg-amber-400"}`}>
               </span>
-              LIVE
+              {areaLoading ? (language === "hi" ? "जुड़ रहा है" : "CONNECTING") : areaBriefing?.weather?.status === "live" || areaBriefing?.news?.status === "live" ? (language === "hi" ? "लाइव डेटा" : "LIVE DATA") : (language === "hi" ? "डेमो डेटा" : "DEMO DATA")}
             </span>
             <Chip tone="slate">
               <MapPin className="h-3 w-3" /> {snapshot?.city?.name || "Jaipur"}
@@ -784,30 +1150,29 @@ function App() {
             <Chip tone="slate">
               <Clock className="h-3 w-3" /> {fmtTime(snapshot?.lastUpdated)}
             </Chip>
+            <button
+              type="button"
+              onClick={() => setDashboardLanguage(language === "en" ? "hi" : "en")}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:border-sky-500/50 hover:text-white"
+              aria-label={language === "en" ? "Switch to Hindi" : "Switch to English"}
+              aria-pressed={language === "hi"}
+            >
+              <Languages className="h-3.5 w-3.5 text-sky-300" />
+              {language === "en" ? "हिंदी" : "EN"}
+            </button>
           </div>
 
           <div className="ml-auto hidden items-center gap-2 sm:flex">
-            {(snapshot?.feeds || []).map((f) => {
-              const M = SOURCE_META[f.source];
-              const ok = f.status === "ok";
-              return (
-                <span
-                  key={f.source}
-                  title={`${M?.name}: ${f.status}`}
-                  className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${ok ? "text-slate-300" : "text-amber-300"}`}
-                >
-                  <CircleDot
-                    className={`h-3 w-3 ${ok ? "text-emerald-400" : "text-amber-400"}`}
-                  />{" "}
-                  {M?.name}
-                </span>
-              );
-            })}
+            {(areaBriefing?.sources || []).map((source) => (
+              <span key={source} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-slate-300">
+                <CircleDot className="h-3 w-3 text-emerald-400" /> {source}
+              </span>
+            ))}
           </div>
 
           <div className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
             <div className="mr-1 hidden text-xs text-slate-400 sm:block">
-              Demo step{" "}
+              {copy(language, "scenarioStep")}{" "}
               <span className="font-bold text-slate-200">{step}/5</span>
             </div>
             <button
@@ -816,14 +1181,14 @@ function App() {
               className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-violet-600 px-2 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50 sm:flex-none sm:px-3"
             >
               <Play className="h-4 w-4" />{" "}
-              {playing ? "Playing…" : "Play Zone-3 Scenario"}
+              {playing ? "Playing…" : copy(language, "simulatedDemo")}
             </button>
             <button
               onClick={doAdvance}
               disabled={busy || playing || step >= 5}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40 sm:px-3"
             >
-              <SkipForward className="h-4 w-4" /> Next
+              <SkipForward className="h-4 w-4" /> {copy(language, "nextStep")}
             </button>
           </div>
         </div>
@@ -837,7 +1202,7 @@ function App() {
                 onClick={() => setTab(t.id)}
                 className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition ${active ? "border-sky-400 text-sky-300" : "border-transparent text-slate-400 hover:text-slate-200"}`}
               >
-                <t.icon className="h-4 w-4" /> {t.label}
+                <t.icon className="h-4 w-4" /> {copy(language, t.id)}
                 {t.id === "alerts" &&
                   snapshot?.alerts?.filter((a) => a.status === "active")
                     .length > 0 && (
@@ -906,7 +1271,7 @@ function App() {
                     }`}
                   >
                     <t.icon className="h-4 w-4" />
-                    <span>{t.label}</span>
+                    <span>{copy(language, t.id)}</span>
                     {t.id === "alerts" &&
                       snapshot?.alerts?.filter((a) => a.status === "active")
                         .length > 0 && (
@@ -951,27 +1316,37 @@ function App() {
             <section className="mb-6 flex flex-col gap-4 border-b border-slate-800/80 pb-5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="cp-eyebrow">
-                  {tab === "overview" ? "Live city briefing" : "City intelligence"}
+                  {copy(language, tab === "overview" ? "liveBriefing" : "intelligenceDesk")}
                 </p>
                 <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                  {tab === "overview" ? "Jaipur at a glance" : TABS.find((item) => item.id === tab)?.label}
+                  {tab === "overview" ? copy(language, "cityTitle") : copy(language, tab)}
                 </h1>
                 <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-400">
                   {tab === "overview"
-                    ? "A real-time view of neighborhood health, active signals, and emerging patterns."
-                    : "Explore live civic signals, events, and intelligence across Jaipur."}
+                    ? copy(language, "cityDescription")
+                    : copy(language, "placeAtlasDescription")}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2 text-xs text-slate-400">
                 <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.07] px-3 py-1.5 text-emerald-300">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  Monitoring live
+                  {copy(language, "monitoring")}
                 </span>
                 <span className="hidden sm:inline">
                   Updated {fmtTime(snapshot.lastUpdated)}
                 </span>
               </div>
             </section>
+            <div className="mb-4">
+              <CityAreaSearch language={language} onChoose={chooseArea} />
+            </div>
+            <AreaBriefing
+              area={focusedArea}
+              briefing={areaBriefing}
+              loading={areaLoading}
+              error={areaError}
+              language={language}
+            />
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={tab}
@@ -990,6 +1365,11 @@ function App() {
                 insight={latestInsight}
                 goIntel={() => setTab("intelligence")}
                 activity={activity}
+                places={cityPlaces}
+                placesLoading={placesLoading}
+                focusedArea={focusedArea}
+                onSelectPlace={chooseArea}
+                language={language}
               />
             )}
             {tab === "map" && (
@@ -1000,6 +1380,12 @@ function App() {
                 scope={scope}
                 selectedEvent={selectedEvent}
                 setSelectedEvent={setSelectedEvent}
+                places={cityPlaces}
+                placesLoading={placesLoading}
+                placesError={placesError}
+                focusedArea={focusedArea}
+                onSelectPlace={chooseArea}
+                language={language}
               />
             )}
             {tab === "intelligence" && (
@@ -1046,6 +1432,11 @@ function Overview({
   insight,
   goIntel,
   activity,
+  places,
+  placesLoading,
+  focusedArea,
+  onSelectPlace,
+  language,
 }) {
   if (!view) return null;
   const f = view.pulse.factors;
@@ -1060,7 +1451,7 @@ function Overview({
       <div className="cp-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Civic Pulse
+            Civic Pulse · Demo model
           </div>
           <select
             value={scope}
@@ -1087,9 +1478,8 @@ function Overview({
             <FactorBar label="Incidents" value={f.incidents} />
           </div>
         </div>
-        <p className="mt-4 text-xs text-slate-500">
-          An operational indicator derived from current civic signals — not a
-          judgement of the area.
+        <p className="mt-4 text-xs leading-relaxed text-slate-500">
+          {copy(language, "scenarioPulseNote")}
         </p>
         <div className="mt-6 flex min-h-[120px] items-center justify-center">
           {activity.length > 0 &&
@@ -1145,7 +1535,11 @@ function Overview({
             name="Weather"
             severity={s.weather.severity}
             status={
-              s.weather.event?.metadata?.temperature != null
+              !s.weather.event
+                ? language === "hi"
+                  ? "इस डेटासेट में मौसम रिपोर्ट नहीं"
+                  : "No weather report in this dataset"
+                : s.weather.event?.metadata?.temperature != null
                 ? `${s.weather.event?.title || s.weather.title} · ${s.weather.event.metadata.temperature}°C`
                 : s.weather.rainfall >= 4
                   ? `Heavy rainfall · ${s.weather.rainfall} mm/h`
@@ -1162,7 +1556,7 @@ function Overview({
             icon={Car}
             name="Traffic"
             severity={s.traffic.severity}
-            status={`${s.traffic.count} active incidents`}
+            status={s.traffic.count ? `${s.traffic.count} recorded incidents` : language === "hi" ? "कोई यातायात रिपोर्ट दर्ज नहीं" : "No traffic reports recorded"}
             change={Math.round(s.traffic.pct)}
           />
           <SignalCard
@@ -1170,7 +1564,7 @@ function Overview({
             icon={Bus}
             name="Transit"
             severity={s.transit.severity}
-            status={`${s.transit.count} delayed routes`}
+            status={s.transit.count ? `${s.transit.count} recorded route delays` : language === "hi" ? "कोई मार्ग विलंब रिपोर्ट नहीं" : "No transit delay reports"}
             change={Math.round(s.transit.pct)}
             sub={`avg delay ${s.transit.avgDelay || 0} min`}
           />
@@ -1179,7 +1573,7 @@ function Overview({
             icon={AlertTriangle}
             name="Incidents"
             severity={s.incidents.severity}
-            status={`${s.incidents.count} high-severity events`}
+            status={s.incidents.count ? `${s.incidents.count} high-severity reports` : language === "hi" ? "कोई उच्च-गंभीरता रिपोर्ट नहीं" : "No high-severity reports"}
           />
         </div>
 
@@ -1252,7 +1646,11 @@ function Overview({
           )}
         </div>
 
-        <MedicalResponse snapshot={snapshot} />
+        <MedicalResponse
+          snapshot={snapshot}
+          places={places}
+          focusedArea={focusedArea}
+        />
 
         {insight && (
           <div className="cp-panel mt-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
@@ -1276,19 +1674,104 @@ function Overview({
       </Reveal>
 
       <Reveal className="lg:col-span-3" delay={0.12}>
-        <LandmarkGrid snapshot={snapshot} />
+        <LandmarkGrid places={places} loading={placesLoading} onSelectPlace={onSelectPlace} language={language} />
       </Reveal>
     </div>
   );
 }
 
 /* ----------------------------- Map ----------------------------- */
+function CityAtlas({ places, loading, error, onSelectPlace, language }) {
+  const [category, setCategory] = useState("all");
+  const filters = ["all", "areas", "hospitals", "landmarks"];
+  const categoryForFilter = {
+    area: "areas",
+    hospital: "hospitals",
+    landmark: "landmarks",
+  };
+  const filtered =
+    category === "all"
+      ? places
+      : places.filter((place) => categoryForFilter[place.category] === category);
+  const Icon = (place) =>
+    place.category === "hospital"
+      ? Building2
+      : place.category === "area"
+        ? MapPinned
+        : LocateFixed;
+  return (
+    <section className="cp-panel mb-4 rounded-2xl border border-slate-800 bg-slate-900/65 p-4 sm:p-5 lg:col-span-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="cp-eyebrow">{copy(language, "placeAtlas")}</p>
+          <p className="mt-1 text-sm text-slate-400">{copy(language, "placeAtlasDescription")}</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={copy(language, "placeAtlas")}>
+          {filters.map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => setCategory(filter)}
+              aria-pressed={category === filter}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                category === filter
+                  ? "border-sky-500/40 bg-sky-500/10 text-sky-200"
+                  : "border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-600 hover:text-slate-200"
+              }`}
+            >
+              {filter === "all" ? copy(language, "allPlaces") : copy(language, filter)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {error ? (
+        <p role="status" className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-sm text-amber-200">{error}</p>
+      ) : loading ? (
+        <div className="mt-4 flex items-center gap-2 text-sm text-slate-400">
+          <LoaderCircle className="h-4 w-4 animate-spin text-sky-300" />
+          {copy(language, "loadingPlaces")}
+        </div>
+      ) : filtered.length ? (
+        <div className="mt-4 grid max-h-64 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.slice(0, 18).map((place) => {
+            const PlaceIcon = Icon(place);
+            return (
+              <button
+                key={place.id}
+                type="button"
+                onClick={() => onSelectPlace(place)}
+                className="flex min-w-0 items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2.5 text-left transition hover:border-sky-500/30 hover:bg-slate-800/70"
+              >
+                <PlaceIcon className={`mt-0.5 h-4 w-4 shrink-0 ${place.category === "hospital" ? "text-rose-300" : place.category === "area" ? "text-sky-300" : "text-amber-300"}`} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-slate-200">{place.name}</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">{copy(language, categoryForFilter[place.category] || "landmarks")}</span>
+                </span>
+                <MapPin className="mt-1 h-3.5 w-3.5 shrink-0 text-slate-600" />
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="mt-4 text-sm text-slate-400">{copy(language, "noPlaces")}</p>
+      )}
+      <p className="mt-3 text-[11px] text-slate-500">{copy(language, "sourceNote")}</p>
+    </section>
+  );
+}
+
 function MapTab({
   snapshot,
   layers,
   setLayers,
   selectedEvent,
   setSelectedEvent,
+  places,
+  placesLoading,
+  placesError,
+  focusedArea,
+  onSelectPlace,
+  language,
 }) {
   const toggle = (k) => setLayers((p) => ({ ...p, [k]: !p[k] }));
   const LAYERS = [
@@ -1299,6 +1782,13 @@ function MapTab({
   ];
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+      <CityAtlas
+        places={places}
+        loading={placesLoading}
+        error={placesError}
+        onSelectPlace={onSelectPlace}
+        language={language}
+      />
       <div className="lg:col-span-3">
         <div className="mb-3 flex flex-wrap gap-2">
           {LAYERS.map((l) => (
@@ -1320,6 +1810,9 @@ function MapTab({
             layers={layers}
             selectedZoneId={null}
             onSelectEvent={setSelectedEvent}
+            places={places}
+            focusedPlace={focusedArea}
+            onSelectPlace={onSelectPlace}
           />
         </div>
       </div>

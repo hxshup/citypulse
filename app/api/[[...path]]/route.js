@@ -13,213 +13,97 @@ import {
   createInsightAndAlert,
   resolveAlert,
   getZones,
+  listRecords,
+  getEvent,
 } from "@/lib/civic/store";
-import { supabaseServer } from "@/lib/supabase/server";
+import {
+  getJaipurAreaBriefing,
+  getJaipurPlaces,
+  searchJaipurPlaces,
+  isJaipurCoordinate,
+} from "@/lib/civic/providers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function json(data, status = 200) {
-  const res = NextResponse.json(data, { status });
-  res.headers.set(
-    "Access-Control-Allow-Origin",
-    process.env.CORS_ORIGINS || "*",
-  );
-  res.headers.set(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS",
-  );
-  res.headers.set(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization",
-  );
-  return res;
+const requestLimits = new Map();
+const RATE_WINDOW_MS = 60_000;
+const RATE_LIMITS = {
+  read: 180,
+  search: 18,
+  area: 24,
+  write: 20,
+};
+let lastRateMapCleanup = Date.now();
+
+function json(data, status = 200, headers = {}) {
+  return NextResponse.json(data, { status, headers });
 }
 
-export async function OPTIONS() {
-  return json({}, 200);
+function clientKey(request) {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return request.headers.get("x-real-ip") || forwarded || "unknown";
 }
 
-async function readTable(table, limit = 100) {
-  const sb = supabaseServer();
-  const orderCol =
-    table === "civic_events"
-      ? "timestamp"
-      : table === "anomalies" || table === "correlations"
-        ? "detected_at"
-        : "created_at";
-  const { data, error } = await sb
-    .from(table)
-    .select("*")
-    .order(orderCol, { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return data || [];
-}
-async function resolveExpiredEvents() {
-  const sb = supabaseServer();
-
-  const { data: events, error } = await sb
-    .from("civic_events")
-    .select("id, status, metadata")
-    .eq("status", "active");
-
-  if (error || !events?.length) return;
-
+function rateLimit(request, route, kind) {
   const now = Date.now();
+  if (now - lastRateMapCleanup > RATE_WINDOW_MS) {
+    for (const [key, value] of requestLimits) {
+      if (value.expiresAt <= now) requestLimits.delete(key);
+    }
+    lastRateMapCleanup = now;
+  }
 
-  const expiredIds = events
-    .filter((event) => {
-      const expiresAt = event.metadata?.expires_at;
-      return expiresAt && new Date(expiresAt).getTime() <= now;
-    })
-    .map((event) => event.id);
-
-  if (!expiredIds.length) return;
-
-  await sb
-    .from("civic_events")
-    .update({ status: "resolved" })
-    .in("id", expiredIds);
-}
-async function getRealWeather(zone) {
-  try {
-    const key = process.env.WEATHERAPI_KEY;
-
-    if (!key) return null;
-
-    const response = await fetch(
-      `https://api.weatherapi.com/v1/current.json?key=${encodeURIComponent(
-        key,
-      )}&q=${zone.latitude},${zone.longitude}&aqi=no`,
-      { cache: "no-store" },
-    );
-
-    if (!response.ok) return null;
-
-    const data = await response.json();
-
-    return {
-      condition: data.current?.condition?.text || "Current weather",
-      temperature: data.current?.temp_c ?? null,
-      rainfall: data.current?.precip_mm ?? 0,
-      humidity: data.current?.humidity ?? null,
-      wind: data.current?.wind_kph ?? null,
-    };
-  } catch (error) {
-    console.error("Real weather unavailable:", error);
+  const key = `${clientKey(request)}:${route}`;
+  const entry = requestLimits.get(key);
+  if (!entry || entry.expiresAt <= now) {
+    requestLimits.set(key, { count: 1, expiresAt: now + RATE_WINDOW_MS });
     return null;
   }
+  entry.count += 1;
+  if (entry.count <= RATE_LIMITS[kind]) return null;
+  return json(
+    { error: "Too many requests. Please wait before trying again." },
+    429,
+    { "Retry-After": String(Math.ceil((entry.expiresAt - now) / 1000)) },
+  );
 }
-async function generateLiveEvent() {
-  const sb = supabaseServer();
 
-  const { data: zones, error: zoneError } = await sb
-    .from("zones")
-    .select("*")
-    .order("label");
-
-  if (zoneError || !zones?.length) return;
-
-  const zone = zones[Math.floor(Math.random() * zones.length)];
-
-  const realWeather = await getRealWeather(zone);
-
-  const types = [
-    {
-      source: "weather",
-      event_type: "rainfall",
-      title: realWeather
-        ? `${realWeather.condition} in ${zone.name}`
-        : "Light rainfall detected",
-      description: realWeather
-        ? `Live weather observation: ${realWeather.condition}${
-            realWeather.temperature != null
-              ? `, ${realWeather.temperature}°C`
-              : ""
-          }${
-            realWeather.humidity != null
-              ? `, ${realWeather.humidity}% humidity`
-              : ""
-          }.`
-        : `Rainfall detected in ${zone.name}.`,
-      value: realWeather
-        ? realWeather.rainfall
-        : Math.round((Math.random() * 8 + 2) * 10) / 10,
-      unit: "mm",
-    },
-    {
-      source: "traffic",
-      event_type: "incident",
-      title: "Traffic activity detected",
-      description: `Increased traffic activity reported in ${zone.name}.`,
-      value: Math.floor(Math.random() * 6) + 2,
-      unit: "incidents",
-    },
-    {
-      source: "transit",
-      event_type: "delay",
-      title: "Transit delay detected",
-      description: `Minor transit delay reported in ${zone.name}.`,
-      value: Math.floor(Math.random() * 8) + 2,
-      unit: "min",
-    },
-  ];
-
-  const event = types[Math.floor(Math.random() * types.length)];
-  const severity = Math.random() > 0.75 ? "medium" : "low";
-
-  const { data: insertedEvent, error: insertError } = await sb
-    .from("civic_events")
-    .insert({
-      source: event.source,
-      event_type: event.event_type,
-      title: event.title,
-      description: event.description,
-      zone_id: zone.id,
-      latitude: zone.latitude + (Math.random() - 0.5) * 0.004,
-      longitude: zone.longitude + (Math.random() - 0.5) * 0.004,
-      severity,
-      value: event.value,
-      unit: event.unit,
-      status: "active",
-      timestamp: new Date().toISOString(),
-      metadata: {
-        generated: true,
-        live: true,
-        expires_at: new Date(
-          Date.now() +
-            (event.source === "weather"
-              ? (20 + Math.random() * 10) * 1000
-              : event.source === "traffic"
-                ? (25 + Math.random() * 10) * 1000
-                : (30 + Math.random() * 10) * 1000),
-        ).toISOString(),
-      },
-    })
-    .select("id")
-    .single();
-
-  if (insertError) {
-    throw insertError;
-  }
-  if (insertedEvent?.id && (severity === "medium" || severity === "high")) {
-    const { error: alertError } = await sb.from("alerts").insert({
-      zone_id: zone.id,
-      alert_type: "incident",
-      severity,
-      title: event.title,
-      message: `${event.description} This incident is currently active.`,
-      status: "active",
-    });
-
-    if (alertError) {
-      throw alertError;
-    }
+function sameOrigin(request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return request.headers.get("sec-fetch-site") !== "cross-site";
+  try {
+    const candidate = new URL(origin);
+    const expected = new URL(request.url);
+    if (candidate.origin === expected.origin) return true;
+    const configured = (process.env.CORS_ORIGINS || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    return configured.includes(candidate.origin);
+  } catch {
+    return false;
   }
 }
 
-// ---- Scenario driver ------------------------------------------------------
+export async function OPTIONS(request) {
+  const origin = request.headers.get("origin");
+  if (origin && !sameOrigin(request)) {
+    return json({ error: "Cross-origin requests are not allowed." }, 403);
+  }
+  return new NextResponse(null, { status: 204 });
+}
+
+function parseJaipurCoordinates(url) {
+  const latitude = Number(url.searchParams.get("lat"));
+  const longitude = Number(url.searchParams.get("lon"));
+  if (!isJaipurCoordinate(latitude, longitude)) return null;
+  const name = url.searchParams.get("name")?.trim().slice(0, 80);
+  const language = url.searchParams.get("language") === "hi" ? "hi" : "en";
+  if (!name) return null;
+  return { latitude, longitude, name, language };
+}
+
 async function scenarioReset() {
   await ensureZones();
   await clearScenarioData();
@@ -233,8 +117,9 @@ async function scenarioAdvance() {
   const sim = await getSimState();
   const base = sim.base_ts || new Date().toISOString();
   const next = Math.min((sim.step || 0) + 1, 5);
-  if (sim.step >= 5)
+  if (sim.step >= 5) {
     return { step: 5, message: "Scenario complete", done: true };
+  }
 
   if (next <= 3) {
     await insertEvents(scenarioStepEvents(next, base));
@@ -247,108 +132,116 @@ async function scenarioAdvance() {
     return { step: next, message: labels[next] };
   }
 
-  // Steps 4 & 5 work on the deterministic snapshot for Zone 3
-  const snap = await buildSnapshot();
-  const z3 = snap.zones.find((v) => v.zone.id === ZONE3_ID);
-
+  const snapshot = await buildSnapshot();
+  const zone = snapshot.zones.find((view) => view.zone.id === ZONE3_ID);
   if (next === 4) {
-    if (z3?.anomalies?.length)
-      await persistFindings(z3.zone, z3.anomalies, z3.correlation);
+    if (zone?.anomalies.length) {
+      await persistFindings(zone.zone, zone.anomalies, zone.correlation);
+    }
     await setSimState(4, base);
     return {
       step: 4,
       message: "Anomalies + correlation detected in Zone 3",
-      correlation: z3?.correlation || null,
+      correlation: zone?.correlation || null,
     };
   }
 
-  // next === 5: grounded AI insight + alert
-  if (z3?.correlation) {
-    const c = z3.correlation;
+  if (zone?.correlation) {
+    const correlation = zone.correlation;
     const finding = {
-      zoneName: z3.zone.label,
-      rainfall: z3.signals.weather.rainfall,
-      trafficPct: Math.round(z3.signals.traffic.pct),
+      zoneName: zone.zone.label,
+      rainfall: zone.signals.weather.rainfall,
+      trafficPct: Math.round(zone.signals.traffic.pct),
       transitPct:
-        z3.signals.transit.pct >= 40
-          ? Math.round(z3.signals.transit.pct)
+        zone.signals.transit.pct >= 40
+          ? Math.round(zone.signals.transit.pct)
           : null,
-      timeOverlapMin: c.time_overlap,
-      confidence: c.confidence,
+      timeOverlapMin: correlation.time_overlap,
+      confidence: correlation.confidence,
     };
     const { summary, ai } = await generateGroundedSummary(finding);
-    await createInsightAndAlert(z3.zone, c, summary, ai);
+    await createInsightAndAlert(zone.zone, correlation, summary, ai);
     await setSimState(5, base);
-    return {
-      step: 5,
-      message: "CityPulse generated an insight",
-      summary,
-      ai,
-      done: true,
-    };
+    return { step: 5, message: "CityPulse generated an insight", summary, ai, done: true };
   }
   await setSimState(5, base);
   return { step: 5, message: "Scenario complete (no correlation)", done: true };
 }
 
-// ---- Router ---------------------------------------------------------------
 async function handle(request, { params }) {
   const { path = [] } = await params;
   const route = `/${(path || []).join("/")}`;
   const method = request.method;
+  const writeRequest = !["GET", "HEAD", "OPTIONS"].includes(method);
+  if (writeRequest && !sameOrigin(request)) {
+    return json({ error: "Cross-origin mutation rejected." }, 403);
+  }
+  const kind = route === "/jaipur/search" ? "search" : route === "/jaipur/area" ? "area" : writeRequest ? "write" : "read";
+  const limited = rateLimit(request, route, kind);
+  if (limited) return limited;
 
   try {
-    if (route === "/" || route === "/root")
-      return json({ app: "CityPulse", status: "ok" });
-
+    if (route === "/" || route === "/root") {
+      return json({ app: "CityPulse", status: "ok", database: "sqlite" });
+    }
     if (route === "/state" && method === "GET") {
       await ensureZones();
-      await resolveExpiredEvents();
       return json(await buildSnapshot());
     }
-    if (route === "/live-event" && method === "POST") {
+    if (route === "/zones" && method === "GET") {
       await ensureZones();
-      await generateLiveEvent();
-      return json({ ok: true, message: "Live event generated" });
+      return json(await getZones());
     }
-    if (route === "/zones" && method === "GET") return json(await getZones());
+    if (route === "/jaipur/search" && method === "GET") {
+      const query = new URL(request.url).searchParams.get("q") || "";
+      if (query.trim().length < 3 || query.length > 80) {
+        return json({ error: "Search must be between 3 and 80 characters." }, 400);
+      }
+      return json(await searchJaipurPlaces(query));
+    }
+    if (route === "/jaipur/area" && method === "GET") {
+      const area = parseJaipurCoordinates(new URL(request.url));
+      if (!area) {
+        return json({ error: "A valid Jaipur location name, latitude, and longitude are required." }, 400);
+      }
+      return json(await getJaipurAreaBriefing(area));
+    }
+    if (route === "/jaipur/places" && method === "GET") {
+      const group = new URL(request.url).searchParams.get("group") || "all";
+      if (!["all", "areas", "hospitals", "landmarks"].includes(group)) {
+        return json({ error: "Unsupported Jaipur places category." }, 400);
+      }
+      return json(await getJaipurPlaces(group));
+    }
 
-    if (route === "/events" && method === "GET")
-      return json(await readTable("civic_events", 400));
+    if (route === "/events" && method === "GET") {
+      return json(await listRecords("civic_events", 400));
+    }
     if (path[0] === "events" && path[1] && method === "GET") {
-      const events = await readTable("civic_events", 400);
-      const found = events.find((e) => e.id === path[1]);
-      if (!found) return json({ error: "Event not found" }, 404);
-      return json(found);
+      const event = await getEvent(path[1]);
+      if (!event) return json({ error: "Event not found" }, 404);
+      return json(event);
     }
-    if (route === "/anomalies" && method === "GET")
-      return json(await readTable("anomalies"));
-    if (route === "/correlations" && method === "GET")
-      return json(await readTable("correlations"));
-    if (route === "/insights" && method === "GET")
-      return json(await readTable("insights"));
-    if (route === "/alerts" && method === "GET")
-      return json(await readTable("alerts"));
-
-    if (route === "/scenario/reset" && method === "POST")
+    if (["anomalies", "correlations", "insights", "alerts"].includes(path[0]) && path.length === 1 && method === "GET") {
+      return json(await listRecords(path[0]));
+    }
+    if (route === "/scenario/reset" && method === "POST") {
       return json(await scenarioReset());
-    if (route === "/scenario/advance" && method === "POST")
+    }
+    if (route === "/scenario/advance" && method === "POST") {
       return json(await scenarioAdvance());
-
-    if (path[0] === "alerts" && path[2] === "resolve" && method === "POST") {
-      await resolveAlert(path[1]);
+    }
+    if (path[0] === "alerts" && path[1] && path[2] === "resolve" && method === "POST") {
+      const resolved = await resolveAlert(path[1]);
+      if (!resolved) return json({ error: "Active alert not found." }, 404);
       return json({ ok: true });
     }
-
     return json({ error: `Route ${route} not found` }, 404);
   } catch (error) {
-    console.error("API Error:", error);
-    return json({ error: error.message || "Internal server error" }, 500);
+    console.error("[citypulse.api]", route, error);
+    return json({ error: "The civic service could not complete this request." }, 500);
   }
 }
 
 export const GET = handle;
 export const POST = handle;
-export const PUT = handle;
-export const DELETE = handle;
-export const PATCH = handle;
