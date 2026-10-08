@@ -216,6 +216,7 @@ function SignalCard({
   severity,
   change,
   sub,
+  language,
 }) {
   const s = sev(severity);
   return (
@@ -240,7 +241,7 @@ function SignalCard({
         <div
           className={`mt-1 text-xs font-semibold ${change > 0 ? "text-rose-300" : "text-slate-500"}`}
         >
-          {change > 0 ? `+${change}% vs baseline` : "nominal"}
+          {change > 0 ? `+${change}% ${copy(language, "vsBaseline")}` : copy(language, "nominal")}
         </div>
       )}
       {sub && <div className="mt-1 text-xs text-slate-500">{sub}</div>}
@@ -412,6 +413,18 @@ const COPY = {
     incidentUpdates: "active updates",
     scenarioNormal: "Scenario started — normal city state",
     liveScoresRefreshed: "Live civic scores refreshed",
+    tagline: "Live Civic Intelligence",
+    liveSources: "LIVE SOURCES",
+    sourcesOffline: "SOURCES OFFLINE",
+    connecting: "CONNECTING",
+    feelsLike: "feels like",
+    weatherAttribution: "Weather data by Open-Meteo",
+    headlinesAttribution: "Headlines by Google News; original publishers linked",
+    vsBaseline: "vs baseline",
+    nominal: "nominal",
+    aiSummary: "AI GROUNDED SUMMARY",
+    deterministicFallback: "DETERMINISTIC FALLBACK",
+    updated: "Updated",
   },
   hi: {
     overview: "अवलोकन",
@@ -541,6 +554,18 @@ const COPY = {
     incidentUpdates: "सक्रिय अपडेट",
     scenarioNormal: "परिदृश्य शुरू हुआ — शहर की सामान्य स्थिति",
     liveScoresRefreshed: "नागरिक स्कोर रीफ़्रेश हुए",
+    tagline: "लाइव नागरिक जानकारी",
+    liveSources: "लाइव स्रोत",
+    sourcesOffline: "स्रोत उपलब्ध नहीं",
+    connecting: "जुड़ रहा है",
+    feelsLike: "अनुभूत तापमान",
+    weatherAttribution: "मौसम डेटा · Open-Meteo",
+    headlinesAttribution: "Google समाचार · मूल प्रकाशक के लिंक",
+    vsBaseline: "सामान्य स्तर से",
+    nominal: "सामान्य",
+    aiSummary: "AI आधारित सारांश",
+    deterministicFallback: "नियम-आधारित विकल्प",
+    updated: "अपडेट",
   },
 };
 
@@ -702,11 +727,11 @@ function AreaBriefing({ area, briefing, loading, error, language }) {
                 <span className="text-sm text-slate-400">{weatherCondition}</span>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-                <div><span className="block text-slate-500">{copy(language, "temperature")}</span><b className="mt-1 block text-slate-200">{weather.feelsLikeC}°C feels like</b></div>
+                <div><span className="block text-slate-500">{copy(language, "temperature")}</span><b className="mt-1 block text-slate-200">{weather.feelsLikeC}°C {copy(language, "feelsLike")}</b></div>
                 <div><span className="block text-slate-500">{copy(language, "rain")}</span><b className="mt-1 block text-slate-200">{weather.precipitationMm} mm</b></div>
                 <div><span className="block text-slate-500">{copy(language, "wind")}</span><b className="mt-1 block text-slate-200">{weather.windKph} km/h</b></div>
               </div>
-              <p className="mt-4 text-[11px] text-slate-500">{weather.attribution} · {fmtTime(weather.observedAt)}</p>
+              <p className="mt-4 text-[11px] text-slate-500">{copy(language, "weatherAttribution")} · {fmtTime(weather.observedAt)}</p>
             </>
           ) : <p className="mt-4 text-sm text-slate-400">{weather?.message || copy(language, "sourceUnavailable")}</p>}
         </section>
@@ -732,7 +757,7 @@ function AreaBriefing({ area, briefing, loading, error, language }) {
               {!news.news.length && <p className="px-2 py-2 text-sm text-slate-400">{copy(language, "noHeadlines")}</p>}
             </div>
           ) : <p className="mt-4 text-sm text-slate-400">{news?.message || copy(language, "sourceUnavailable")}</p>}
-          <p className="mt-3 px-2 text-[11px] text-slate-500">{news?.attribution || "Google News RSS · headlines link to publishers"}</p>
+          <p className="mt-3 px-2 text-[11px] text-slate-500">{copy(language, "headlinesAttribution")}</p>
           {briefing?.incidents?.length > 0 && (
             <div className="mt-3 border-t border-slate-800 pt-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-300">{copy(language, "incidentsInNews")}</p>
@@ -1305,7 +1330,7 @@ function App() {
                 CITYPULSE
               </div>
               <div className="text-[11px] text-slate-400">
-                Live Civic Intelligence
+                {copy(language, "tagline")}
               </div>
             </div>
           </div>
@@ -1314,7 +1339,7 @@ function App() {
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/[0.07] px-2.5 py-1 text-xs font-semibold text-emerald-300">
               <span className={`h-1.5 w-1.5 rounded-full ${areaBriefing?.weather?.status === "live" || areaBriefing?.news?.status === "live" ? "bg-emerald-400" : "bg-amber-400"}`}>
               </span>
-              {areaLoading ? (language === "hi" ? "जुड़ रहा है" : "CONNECTING") : areaBriefing?.sources?.length ? (language === "hi" ? "लाइव स्रोत" : "LIVE SOURCES") : (language === "hi" ? "स्रोत उपलब्ध नहीं" : "SOURCES OFFLINE")}
+              {areaLoading ? copy(language, "connecting") : areaBriefing?.sources?.length ? copy(language, "liveSources") : copy(language, "sourcesOffline")}
             </span>
             <Chip tone="slate">
               <MapPin className="h-3 w-3" /> {snapshot?.city?.name || "Jaipur"}
@@ -1507,7 +1532,7 @@ function App() {
                       : copy(language, "noSources")}
                 </span>
                 <span className="hidden sm:inline">
-                  Updated {fmtTime(snapshot.lastUpdated)}
+                  {copy(language, "updated")} {fmtTime(snapshot.lastUpdated)}
                 </span>
               </div>
             </section>
@@ -1707,6 +1732,7 @@ function Overview({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SignalCard
             source="weather"
+            language={language}
             icon={CloudRain}
             name={copy(language, "weather")}
             severity={s.weather.severity}
@@ -1729,6 +1755,7 @@ function Overview({
           />
           <SignalCard
             source="traffic"
+            language={language}
             icon={Car}
             name={copy(language, "traffic")}
             severity={s.traffic.severity}
@@ -1737,6 +1764,7 @@ function Overview({
           />
           <SignalCard
             source="transit"
+            language={language}
             icon={Bus}
             name={copy(language, "transit")}
             severity={s.transit.severity}
@@ -1746,6 +1774,7 @@ function Overview({
           />
           <SignalCard
             source="incidents"
+            language={language}
             icon={AlertTriangle}
             name={copy(language, "incidents")}
             severity={s.incidents.severity}
@@ -1847,8 +1876,8 @@ function Overview({
                 className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${insight.metadata?.ai ? "bg-violet-500/15 text-violet-300" : "bg-slate-700 text-slate-300"}`}
               >
                 {insight.metadata?.ai
-                  ? "AI GROUNDED SUMMARY"
-                  : "DETERMINISTIC FALLBACK"}
+                  ? copy(language, "aiSummary")
+                  : copy(language, "deterministicFallback")}
               </span>
             </div>
             <p className="text-sm leading-relaxed text-slate-200">
