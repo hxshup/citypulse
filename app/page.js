@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
   CloudRain,
@@ -207,7 +208,7 @@ function SignalCard({
   const s = sev(severity);
   return (
     <div
-      className={`rounded-xl border ${s.ring} bg-slate-900/60 p-4 backdrop-blur`}
+      className={`cp-panel rounded-xl border ${s.ring} bg-slate-900/60 p-4 backdrop-blur`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -249,6 +250,24 @@ function Chip({ children, tone = "slate" }) {
     >
       {children}
     </span>
+  );
+}
+
+function Reveal({ children, className, delay = 0 }) {
+  const prefersReducedMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={className}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: prefersReducedMotion ? 0 : 0.32,
+        delay: prefersReducedMotion ? 0 : delay,
+        ease: "easeOut",
+      }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -318,7 +337,7 @@ function LiveIncidentStrip({ snapshot }) {
     .slice(0, 8);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-sky-500/25 bg-slate-900/70 lg:col-span-3">
+    <section className="cp-panel overflow-hidden rounded-2xl border border-sky-500/25 bg-slate-900/70 lg:col-span-3">
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
           <Radio className="h-4 w-4 text-rose-400" /> Live incident wire
@@ -389,7 +408,7 @@ function MedicalResponse({ snapshot }) {
   const activeCases = medicalEvents.length;
 
   return (
-    <div className="mt-4 rounded-2xl border border-rose-500/25 bg-rose-500/[0.04] p-5">
+    <div className="cp-panel mt-4 rounded-2xl border border-rose-500/25 bg-rose-500/[0.04] p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-rose-300">
@@ -470,7 +489,7 @@ function LandmarkGrid({ snapshot }) {
           return (
             <article
               key={landmark.name}
-              className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4 transition-colors hover:border-slate-700"
+              className="cp-panel rounded-2xl border border-slate-800 bg-slate-900/55 p-4 transition-colors hover:border-slate-700"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -541,6 +560,7 @@ const TABS = [
 ];
 
 function App() {
+  const prefersReducedMotion = useReducedMotion();
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -716,7 +736,7 @@ function App() {
 
   return (
     <div
-      className="min-h-screen bg-slate-950 text-slate-100"
+      className="min-h-screen bg-[#070b14] text-slate-100"
       style={{
         backgroundImage:
           "radial-gradient(1200px 500px at 80% -10%, rgba(56,189,248,0.08), transparent), radial-gradient(1000px 400px at 0% 0%, rgba(168,85,247,0.06), transparent)",
@@ -807,70 +827,6 @@ function App() {
             </button>
           </div>
         </div>
-        {mobileMenuOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-40 bg-black/50 sm:hidden"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-
-            <div className="fixed left-0 top-0 z-50 h-full w-72 border-r border-slate-800 bg-slate-950 shadow-2xl sm:hidden">
-              <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600">
-                    <Activity className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="font-bold text-slate-100">CITYPULSE</span>
-                </div>
-
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
-                  aria-label="Close navigation"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-1 p-3">
-                {TABS.map((t) => {
-                  const active = tab === t.id;
-
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        setTab(t.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition ${
-                        active
-                          ? "bg-sky-500/10 text-sky-300"
-                          : "text-slate-300 hover:bg-slate-800"
-                      }`}
-                    >
-                      <t.icon className="h-4 w-4" />
-                      <span>{t.label}</span>
-
-                      {t.id === "alerts" &&
-                        snapshot?.alerts?.filter((a) => a.status === "active")
-                          .length > 0 && (
-                          <span className="ml-auto rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
-                            {
-                              snapshot.alerts.filter(
-                                (a) => a.status === "active",
-                              ).length
-                            }
-                          </span>
-                        )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
-
         {/* tabs */}
         <div className="mx-auto hidden max-w-[1400px] gap-1 overflow-x-auto px-4 sm:flex">
           {TABS.map((t) => {
@@ -897,14 +853,27 @@ function App() {
           })}
         </div>
       </header>
+      <AnimatePresence>
       {mobileMenuOpen && (
-        <>
+        <motion.div
+          key="mobile-navigation"
+          className="fixed inset-0 z-40 sm:hidden"
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
+        >
           <div
-            className="fixed inset-0 z-40 bg-black/60 sm:hidden"
+            className="absolute inset-0 bg-black/60"
             onClick={() => setMobileMenuOpen(false)}
           />
-
-          <div className="fixed left-0 top-0 z-50 h-full w-72 border-r border-slate-800 bg-slate-950 shadow-2xl sm:hidden">
+          <motion.aside
+            className="absolute left-0 top-0 z-10 h-full w-72 border-r border-slate-800 bg-slate-950 shadow-2xl"
+            initial={prefersReducedMotion ? false : { opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={prefersReducedMotion ? undefined : { opacity: 0, x: -20 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: "easeOut" }}
+          >
             <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-violet-600">
@@ -912,7 +881,6 @@ function App() {
                 </div>
                 <span className="font-bold text-slate-100">CITYPULSE</span>
               </div>
-
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
@@ -921,11 +889,9 @@ function App() {
                 ✕
               </button>
             </div>
-
             <div className="space-y-1 p-3">
               {TABS.map((t) => {
                 const active = tab === t.id;
-
                 return (
                   <button
                     key={t.id}
@@ -941,7 +907,6 @@ function App() {
                   >
                     <t.icon className="h-4 w-4" />
                     <span>{t.label}</span>
-
                     {t.id === "alerts" &&
                       snapshot?.alerts?.filter((a) => a.status === "active")
                         .length > 0 && (
@@ -956,11 +921,11 @@ function App() {
                 );
               })}
             </div>
-          </div>
-        </>
+          </motion.aside>
+        </motion.div>
       )}
-
-      <main className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4 sm:py-6">
+      </AnimatePresence>
+      <main className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         {loading && (
           <div className="flex h-64 items-center justify-center text-slate-400">
             <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading civic
@@ -983,6 +948,38 @@ function App() {
 
         {!loading && !err && snapshot && (
           <>
+            <section className="mb-6 flex flex-col gap-4 border-b border-slate-800/80 pb-5 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="cp-eyebrow">
+                  {tab === "overview" ? "Live city briefing" : "City intelligence"}
+                </p>
+                <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                  {tab === "overview" ? "Jaipur at a glance" : TABS.find((item) => item.id === tab)?.label}
+                </h1>
+                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-400">
+                  {tab === "overview"
+                    ? "A real-time view of neighborhood health, active signals, and emerging patterns."
+                    : "Explore live civic signals, events, and intelligence across Jaipur."}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2 text-xs text-slate-400">
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.07] px-3 py-1.5 text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Monitoring live
+                </span>
+                <span className="hidden sm:inline">
+                  Updated {fmtTime(snapshot.lastUpdated)}
+                </span>
+              </div>
+            </section>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={tab}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, y: -4 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: "easeOut" }}
+              >
             {tab === "overview" && (
               <Overview
                 snapshot={snapshot}
@@ -1023,6 +1020,8 @@ function App() {
               <Alerts snapshot={snapshot} refresh={fetchState} />
             )}
             {tab === "replay" && <Replay snapshot={snapshot} />}
+              </motion.div>
+            </AnimatePresence>
           </>
         )}
       </main>
@@ -1053,9 +1052,12 @@ function Overview({
   const s = view.signals;
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-      <LiveIncidentStrip snapshot={snapshot} />
+      <Reveal className="lg:col-span-3">
+        <LiveIncidentStrip snapshot={snapshot} />
+      </Reveal>
       {/* Hero pulse */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 lg:col-span-1">
+      <Reveal className="lg:col-span-1" delay={0.04}>
+      <div className="cp-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
             Civic Pulse
@@ -1128,9 +1130,11 @@ function Overview({
             })()}
         </div>
       </div>
+      </Reveal>
 
       {/* Signals */}
-      <div className="lg:col-span-2">
+      <Reveal className="lg:col-span-2" delay={0.08}>
+      <div>
         <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
           Active Signals
         </div>
@@ -1182,7 +1186,7 @@ function Overview({
         {/* Intelligence card */}
         <div className="mt-4">
           {correlation ? (
-            <div className="relative overflow-hidden rounded-2xl border border-sky-500/40 bg-gradient-to-br from-sky-500/10 to-violet-500/10 p-5">
+            <div className="cp-panel relative overflow-hidden rounded-2xl border border-sky-500/40 bg-gradient-to-br from-sky-500/10 to-violet-500/10 p-5">
               <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
                 <div>
                   <div className="flex items-center gap-2 text-sky-300">
@@ -1235,7 +1239,7 @@ function Overview({
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
+            <div className="cp-panel rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
               <div className="flex items-center gap-2 text-emerald-300">
                 <ShieldCheck className="h-5 w-5" />
                 <span className="font-semibold">All signals nominal</span>
@@ -1251,7 +1255,7 @@ function Overview({
         <MedicalResponse snapshot={snapshot} />
 
         {insight && (
-          <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+          <div className="cp-panel mt-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
             <div className="mb-1 flex items-center gap-2 text-slate-300">
               <Sparkles className="h-4 w-4 text-violet-300" />
               <span className="text-sm font-semibold">{insight.title}</span>
@@ -1269,8 +1273,11 @@ function Overview({
           </div>
         )}
       </div>
+      </Reveal>
 
-      <LandmarkGrid snapshot={snapshot} />
+      <Reveal className="lg:col-span-3" delay={0.12}>
+        <LandmarkGrid snapshot={snapshot} />
+      </Reveal>
     </div>
   );
 }
@@ -1307,7 +1314,7 @@ function MapTab({
             </button>
           ))}
         </div>
-        <div className="h-[min(560px,70vh)] min-h-[360px] rounded-xl border border-slate-800">
+        <div className="cp-panel h-[min(560px,70vh)] min-h-[360px] overflow-hidden rounded-xl border border-slate-800">
           <CivicMap
             snapshot={snapshot}
             layers={layers}
