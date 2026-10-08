@@ -327,12 +327,10 @@ const COPY = {
     loadingPlaces: "Loading Jaipur places…",
     noPlaces: "No mapped places were returned. Try searching for a specific location.",
     sourceNote: "OpenStreetMap place data · © OpenStreetMap contributors",
-    simulatedDemo: "Play demo scenario",
     noSignalData: "No civic reports recorded",
     noSignalDetail: "CityPulse has no current incident feed for this area. Weather, traffic, and news below come from separate live public sources.",
     scenarioPulseNote: "When present, this score is calculated only from CityPulse's recorded or demo scenario events. It is not a citywide safety rating.",
     nextStep: "Next",
-    scenarioStep: "Demo step",
     sourceUnavailable: "This source is temporarily unavailable.",
     liveIncident: "Civic event wire",
     recordedEvents: "Demo / recorded events",
@@ -360,7 +358,6 @@ const COPY = {
     chronologicalTimeline: "Chronological event timeline",
     alertCenter: "Alert center",
     markResolved: "Mark resolved",
-    historicalReplay: "Historical replay",
     loadingCivic: "Loading civic signals…",
     dataErrorTitle: "Could not reach the data layer",
     dataErrorHint: "For Vercel, configure persistent storage with",
@@ -402,16 +399,11 @@ const COPY = {
     selectEventDetails: "Select an event to see full details.",
     resolved: "RESOLVED",
     noAlerts: "No alerts. The engine raises alerts when a correlation crosses the confidence threshold.",
-    demoReplay: "DEMO REPLAY",
-    replaying: "Replaying…",
-    play: "Play",
-    replayDescription: "Scrub or press Play to watch how the civic pattern develops over time using stored demo data.",
     freeFlow: "Free-flow",
     providerConfidence: "provider confidence",
     nearestRoad: "nearest road segment",
     emergencyDisclaimer: "Traffic reports and nearby event mentions are not emergency dispatch data.",
     incidentUpdates: "active updates",
-    scenarioNormal: "Scenario started — normal city state",
     liveScoresRefreshed: "Live civic scores refreshed",
     tagline: "Live Civic Intelligence",
     liveSources: "LIVE SOURCES",
@@ -468,12 +460,10 @@ const COPY = {
     loadingPlaces: "जयपुर की जगहें लोड हो रही हैं…",
     noPlaces: "मानचित्र पर जगहें नहीं मिलीं। कोई स्थान खोजकर देखें।",
     sourceNote: "OpenStreetMap स्थान डेटा · © OpenStreetMap योगदानकर्ता",
-    simulatedDemo: "डेमो परिदृश्य चलाएँ",
     noSignalData: "नागरिक रिपोर्ट उपलब्ध नहीं",
     noSignalDetail: "इस क्षेत्र के लिए CityPulse में अभी घटना फ़ीड नहीं है। नीचे का मौसम, यातायात और समाचार अलग सार्वजनिक स्रोतों से हैं।",
     scenarioPulseNote: "यह स्कोर केवल CityPulse में दर्ज या डेमो परिदृश्य की घटनाओं से निकलता है; यह पूरे शहर की सुरक्षा रेटिंग नहीं है।",
     nextStep: "अगला",
-    scenarioStep: "डेमो चरण",
     sourceUnavailable: "यह स्रोत अभी उपलब्ध नहीं है।",
     liveIncident: "नागरिक घटना सूची",
     recordedEvents: "डेमो / दर्ज घटनाएँ",
@@ -501,7 +491,6 @@ const COPY = {
     chronologicalTimeline: "घटनाओं का समयक्रम",
     alertCenter: "अलर्ट केंद्र",
     markResolved: "हल हुआ चिह्नित करें",
-    historicalReplay: "पुरानी घटनाएँ",
     loadingCivic: "नागरिक संकेत लोड हो रहे हैं…",
     dataErrorTitle: "डेटा सेवा से संपर्क नहीं हो पाया",
     dataErrorHint: "Vercel पर स्थायी डेटा के लिए यह सेट करें",
@@ -543,16 +532,11 @@ const COPY = {
     selectEventDetails: "पूरी जानकारी के लिए कोई घटना चुनें।",
     resolved: "हल हुआ",
     noAlerts: "अभी कोई अलर्ट नहीं है। सहसंबंध विश्वास सीमा पार करने पर इंजन अलर्ट जारी करता है।",
-    demoReplay: "डेमो रीप्ले",
-    replaying: "दोबारा चल रहा है…",
-    play: "चलाएँ",
-    replayDescription: "डेमो डेटा में नागरिक पैटर्न का समयानुसार विकास देखने के लिए स्लाइडर खिसकाएँ या चलाएँ दबाएँ।",
     freeFlow: "खुली सड़क गति",
     providerConfidence: "प्रदाता विश्वास",
     nearestRoad: "निकटतम सड़क खंड",
     emergencyDisclaimer: "यातायात रिपोर्ट और पास की घटनाओं के उल्लेख आपातकालीन सेवा डेटा नहीं हैं।",
     incidentUpdates: "सक्रिय अपडेट",
-    scenarioNormal: "परिदृश्य शुरू हुआ — शहर की सामान्य स्थिति",
     liveScoresRefreshed: "नागरिक स्कोर रीफ़्रेश हुए",
     tagline: "लाइव नागरिक जानकारी",
     liveSources: "लाइव स्रोत",
@@ -1351,7 +1335,7 @@ function App() {
             <section className="mb-6 flex flex-col gap-4 border-b border-slate-800/80 pb-5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="cp-eyebrow">
-                  {copy(language, tab === "overview" ? "liveBriefing" : "intelligenceDesk")}
+                  {copy(language, tab === "overview" ? "liveBriefing" : "map")}
                 </p>
                 <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
                   {tab === "overview" ? copy(language, "cityTitle") : copy(language, tab)}
@@ -2163,101 +2147,6 @@ function Alerts({ snapshot, refresh, language }) {
           );
         })}
       </div>
-    </div>
-  );
-}
-
-/* ----------------------------- Replay ----------------------------- */
-function Replay({ snapshot, language }) {
-  const events = useMemo(
-    () =>
-      [...(snapshot.events || [])].sort(
-        (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
-      ),
-    [snapshot],
-  );
-  const [idx, setIdx] = useState(events.length);
-  const [playing, setPlaying] = useState(false);
-  const ref = useRef(false);
-  useEffect(() => {
-    setIdx(events.length);
-  }, [events.length]);
-
-  async function play() {
-    if (ref.current) return;
-    ref.current = true;
-    setPlaying(true);
-    setIdx(0);
-    for (let i = 1; i <= events.length; i++) {
-      await new Promise((r) => setTimeout(r, 350));
-      if (!ref.current) break;
-      setIdx(i);
-    }
-    ref.current = false;
-    setPlaying(false);
-  }
-  const shown = events.slice(0, idx);
-  const cursorTime = events[Math.max(0, idx - 1)]?.timestamp;
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-          {copy(language, "historicalReplay")}
-        </div>
-        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-          {copy(language, "demoReplay")}
-        </span>
-        <button
-          onClick={play}
-          disabled={playing || !events.length}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-50"
-        >
-          <Play className="h-4 w-4" /> {playing ? copy(language, "replaying") : copy(language, "play")}
-        </button>
-      </div>
-      <input
-        type="range"
-        min="0"
-        max={events.length}
-        value={idx}
-        onChange={(e) => setIdx(Number(e.target.value))}
-        className="mt-4 w-full accent-sky-400"
-      />
-      <div className="mt-1 flex justify-between text-xs text-slate-500">
-        <span>{fmtTime(events[0]?.timestamp)}</span>
-        <span className="font-semibold text-sky-300">
-          {fmtTime(cursorTime)}
-        </span>
-        <span>{fmtTime(events[events.length - 1]?.timestamp)}</span>
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {shown
-          .slice(-9)
-          .reverse()
-          .map((e) => {
-            const M = SOURCE_META[e.source];
-            const s = sev(e.severity);
-            return (
-              <div
-                key={e.id}
-                className={`rounded-lg border ${s.ring} bg-slate-900/60 p-2.5`}
-              >
-                <div className="flex items-center gap-1.5 text-xs">
-                  {M?.icon && <M.icon className={`h-3.5 w-3.5 ${M.color}`} />}
-                  <span className="truncate font-medium text-slate-200">
-                    {e.title}
-                  </span>
-                </div>
-                <div className="mt-0.5 text-[10px] text-slate-500">
-                  {fmtTime(e.timestamp)}
-                </div>
-              </div>
-            );
-          })}
-      </div>
-      <p className="mt-4 text-xs text-slate-500">
-        {copy(language, "replayDescription")}
-      </p>
     </div>
   );
 }
