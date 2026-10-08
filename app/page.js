@@ -296,6 +296,8 @@ const COPY = {
     cityTitle: "Jaipur, in real time",
     cityDescription: "Local weather, city headlines, and civic signals—focused on the place you choose.",
     monitoring: "Monitoring live",
+    loadingSources: "Connecting to sources",
+    noSources: "Live sources unavailable",
     searchPlaceholder: "Search a Jaipur area, landmark, or hospital",
     searchHint: "Search any neighbourhood or place in Jaipur",
     searching: "Searching Jaipur…",
@@ -331,6 +333,85 @@ const COPY = {
     nextStep: "Next",
     scenarioStep: "Demo step",
     sourceUnavailable: "This source is temporarily unavailable.",
+    liveIncident: "Civic event wire",
+    recordedEvents: "Demo / recorded events",
+    activeSignals: "Active Signals",
+    civicPulse: "Civic Pulse · Demo model",
+    weather: "Weather",
+    traffic: "Traffic",
+    transit: "Transit",
+    incidents: "Incidents",
+    nominalSignals: "All signals nominal",
+    detectedCorrelation: "Possible Correlation Detected",
+    correlationDisclaimer: "Possible correlation — not confirmed causation.",
+    medicalWatch: "Medical response watch",
+    emergencyDatasetNotice: "Event mentions from stored civic reports; this is not an emergency dispatch service.",
+    nearestResponse: "Nearest mapped hospital",
+    highSeverityWatch: "High severity watch",
+    activeCases: "active cases",
+    eventDetails: "Event details",
+    selectMapMarker: "Select a map marker to inspect its details.",
+    layerWeather: "Weather",
+    layerTraffic: "Traffic",
+    layerTransit: "Transit",
+    layerAnomalies: "Anomalies",
+    noActiveCorrelations: "No active correlations",
+    chronologicalTimeline: "Chronological event timeline",
+    alertCenter: "Alert center",
+    markResolved: "Mark resolved",
+    historicalReplay: "Historical replay",
+    loadingCivic: "Loading civic signals…",
+    dataErrorTitle: "Could not reach the data layer",
+    dataErrorHint: "Ensure the local SQLite file is writable, or configure",
+    wholeCity: "Whole City",
+    activeUpdates: "active updates",
+    noLiveIncidents: "No active incidents in the live wire.",
+    noMappedHospital: "No mapped hospital nearby",
+    approximate: "Approx.",
+    activeEvents: "active events",
+    noEmergencyReports: "No emergency-related reports in this dataset.",
+    noWeatherReport: "No weather report in this dataset",
+    heavyRain: "Heavy rainfall",
+    clearRain: "Clear",
+    humidity: "Humidity",
+    rainfall: "Rainfall",
+    recordedIncidents: "recorded incidents",
+    noTrafficReports: "No traffic reports recorded",
+    recordedRouteDelays: "recorded route delays",
+    noTransitReports: "No transit delay reports",
+    averageDelay: "avg delay",
+    highSeverityReports: "high-severity reports",
+    noHighSeverityReports: "No high-severity reports",
+    incidentResolved: "Incident Resolved",
+    incidentDetected: "Incident Detected",
+    unknownZone: "Unknown Zone",
+    confidence: "confidence",
+    minOverlap: "min overlap",
+    explorePattern: "Explore Pattern",
+    noCorrelationDescription: "The correlation engine surfaces links when multiple civic signals spike in the same zone and time window. Run the demo scenario to generate one.",
+    correlationPattern: "Correlation Pattern",
+    locationOverlap: "Location overlap",
+    timeOverlap: "Time overlap",
+    anomalyStrength: "Anomaly strength",
+    signalStrength: "Signal strength",
+    evidence: "Evidence",
+    sharedArea: "Shared area",
+    sharedTime: "Shared time",
+    groundedExplanation: "Grounded explanation",
+    selectEventDetails: "Select an event to see full details.",
+    resolved: "RESOLVED",
+    noAlerts: "No alerts. The engine raises alerts when a correlation crosses the confidence threshold.",
+    demoReplay: "DEMO REPLAY",
+    replaying: "Replaying…",
+    play: "Play",
+    replayDescription: "Scrub or press Play to watch how the civic pattern develops over time using stored demo data.",
+    freeFlow: "Free-flow",
+    providerConfidence: "provider confidence",
+    nearestRoad: "nearest road segment",
+    emergencyDisclaimer: "Traffic reports and nearby event mentions are not emergency dispatch data.",
+    incidentUpdates: "active updates",
+    scenarioNormal: "Scenario started — normal city state",
+    liveScoresRefreshed: "Live civic scores refreshed",
   },
   hi: {
     overview: "अवलोकन",
@@ -344,6 +425,8 @@ const COPY = {
     cityTitle: "जयपुर, हर पल",
     cityDescription: "आपके चुने हुए क्षेत्र का मौसम, शहर की खबरें और नागरिक संकेत।",
     monitoring: "लाइव निगरानी",
+    loadingSources: "डेटा स्रोतों से जुड़ रहे हैं",
+    noSources: "लाइव स्रोत उपलब्ध नहीं",
     searchPlaceholder: "जयपुर का क्षेत्र, प्रसिद्ध जगह या अस्पताल खोजें",
     searchHint: "जयपुर का कोई भी इलाका या जगह खोजें",
     searching: "जयपुर में खोज रहे हैं…",
@@ -379,6 +462,85 @@ const COPY = {
     nextStep: "अगला",
     scenarioStep: "डेमो चरण",
     sourceUnavailable: "यह स्रोत अभी उपलब्ध नहीं है।",
+    liveIncident: "नागरिक घटना सूची",
+    recordedEvents: "डेमो / दर्ज घटनाएँ",
+    activeSignals: "सक्रिय संकेत",
+    civicPulse: "सिविक पल्स · डेमो मॉडल",
+    weather: "मौसम",
+    traffic: "यातायात",
+    transit: "सार्वजनिक परिवहन",
+    incidents: "घटनाएँ",
+    nominalSignals: "सभी संकेत सामान्य",
+    detectedCorrelation: "संभावित संबंध मिला",
+    correlationDisclaimer: "संभावित संबंध—कारण की पुष्टि नहीं।",
+    medicalWatch: "चिकित्सा सहायता की जानकारी",
+    emergencyDatasetNotice: "दर्ज नागरिक रिपोर्टों में उल्लेख; यह आपातकालीन सेवा नहीं है।",
+    nearestResponse: "निकटतम मानचित्रित अस्पताल",
+    highSeverityWatch: "उच्च गंभीरता निगरानी",
+    activeCases: "सक्रिय मामले",
+    eventDetails: "घटना का विवरण",
+    selectMapMarker: "विवरण देखने के लिए मानचित्र पर कोई निशान चुनें।",
+    layerWeather: "मौसम",
+    layerTraffic: "यातायात",
+    layerTransit: "परिवहन",
+    layerAnomalies: "असामान्य संकेत",
+    noActiveCorrelations: "कोई सक्रिय संबंध नहीं",
+    chronologicalTimeline: "घटनाओं का समयक्रम",
+    alertCenter: "अलर्ट केंद्र",
+    markResolved: "हल हुआ चिह्नित करें",
+    historicalReplay: "पुरानी घटनाएँ",
+    loadingCivic: "नागरिक संकेत लोड हो रहे हैं…",
+    dataErrorTitle: "डेटा सेवा से संपर्क नहीं हो पाया",
+    dataErrorHint: "स्थानीय SQLite फ़ाइल लिखने योग्य होनी चाहिए, या यह कॉन्फ़िगर करें",
+    wholeCity: "पूरा शहर",
+    activeUpdates: "सक्रिय अपडेट",
+    noLiveIncidents: "लाइव फ़ीड में कोई सक्रिय घटना नहीं है।",
+    noMappedHospital: "पास में मानचित्रित अस्पताल नहीं मिला",
+    approximate: "लगभग",
+    activeEvents: "सक्रिय घटनाएँ",
+    noEmergencyReports: "इस डेटासेट में आपातकालीन रिपोर्ट नहीं हैं।",
+    noWeatherReport: "इस डेटासेट में मौसम रिपोर्ट नहीं है",
+    heavyRain: "भारी बारिश",
+    clearRain: "साफ़",
+    humidity: "नमी",
+    rainfall: "वर्षा",
+    recordedIncidents: "दर्ज घटनाएँ",
+    noTrafficReports: "यातायात रिपोर्ट दर्ज नहीं",
+    recordedRouteDelays: "दर्ज मार्ग विलंब",
+    noTransitReports: "परिवहन विलंब रिपोर्ट नहीं",
+    averageDelay: "औसत विलंब",
+    highSeverityReports: "उच्च गंभीरता रिपोर्ट",
+    noHighSeverityReports: "उच्च गंभीरता रिपोर्ट नहीं",
+    incidentResolved: "घटना हल हुई",
+    incidentDetected: "घटना दर्ज हुई",
+    unknownZone: "अज्ञात क्षेत्र",
+    confidence: "विश्वसनीयता",
+    minOverlap: "मिनट का मेल",
+    explorePattern: "पैटर्न देखें",
+    noCorrelationDescription: "सहसंबंध इंजन एक ही क्षेत्र और समय में कई नागरिक संकेत बढ़ने पर संभावित संबंध दिखाता है। इसे देखने के लिए डेमो चलाएँ।",
+    correlationPattern: "सहसंबंध पैटर्न",
+    locationOverlap: "स्थान का मेल",
+    timeOverlap: "समय का मेल",
+    anomalyStrength: "असामान्य संकेत की तीव्रता",
+    signalStrength: "संकेत की तीव्रता",
+    evidence: "साक्ष्य",
+    sharedArea: "साझा क्षेत्र",
+    sharedTime: "साझा समय",
+    groundedExplanation: "स्रोत-आधारित व्याख्या",
+    selectEventDetails: "पूरी जानकारी के लिए कोई घटना चुनें।",
+    resolved: "हल हुआ",
+    noAlerts: "अभी कोई अलर्ट नहीं है। सहसंबंध विश्वास सीमा पार करने पर इंजन अलर्ट जारी करता है।",
+    demoReplay: "डेमो रीप्ले",
+    replaying: "दोबारा चल रहा है…",
+    play: "चलाएँ",
+    replayDescription: "डेमो डेटा में नागरिक पैटर्न का समयानुसार विकास देखने के लिए स्लाइडर खिसकाएँ या चलाएँ दबाएँ।",
+    freeFlow: "खुली सड़क गति",
+    providerConfidence: "प्रदाता विश्वास",
+    nearestRoad: "निकटतम सड़क खंड",
+    emergencyDisclaimer: "यातायात रिपोर्ट और पास की घटनाओं के उल्लेख आपातकालीन सेवा डेटा नहीं हैं।",
+    incidentUpdates: "सक्रिय अपडेट",
+    scenarioNormal: "परिदृश्य शुरू हुआ — शहर की सामान्य स्थिति",
+    liveScoresRefreshed: "नागरिक स्कोर रीफ़्रेश हुए",
   },
 };
 
@@ -574,7 +736,17 @@ function AreaBriefing({ area, briefing, loading, error, language }) {
           {briefing?.incidents?.length > 0 && (
             <div className="mt-3 border-t border-slate-800 pt-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-300">{copy(language, "incidentsInNews")}</p>
-              {briefing.incidents.slice(0, 2).map((item) => <p key={item.url} className="mt-2 line-clamp-2 text-xs text-slate-300">{item.title}</p>)}
+              {briefing.incidents.slice(0, 2).map((item) => (
+                <a
+                  key={item.url}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 block line-clamp-2 text-xs text-slate-300 underline decoration-slate-700 underline-offset-2 hover:text-amber-200"
+                >
+                  {item.title}
+                </a>
+              ))}
             </div>
           )}
         </section>
@@ -586,8 +758,8 @@ function AreaBriefing({ area, briefing, loading, error, language }) {
           {traffic?.status === "live" ? (
             <>
               <div className="mt-4 text-4xl font-semibold tracking-tight text-white">{traffic.currentSpeedKph}<span className="ml-1 text-base font-medium text-slate-400">km/h</span></div>
-              <p className="mt-2 text-sm text-slate-400">Free-flow {traffic.freeFlowSpeedKph} km/h · {Math.round(traffic.confidence * 100)}% provider confidence</p>
-              <p className="mt-3 text-[11px] text-slate-500">{traffic.source} · nearest road segment</p>
+              <p className="mt-2 text-sm text-slate-400">{copy(language, "freeFlow")} {traffic.freeFlowSpeedKph} km/h · {Math.round(traffic.confidence * 100)}% {copy(language, "providerConfidence")}</p>
+              <p className="mt-3 text-[11px] text-slate-500">{traffic.source} · {copy(language, "nearestRoad")}</p>
             </>
           ) : traffic?.status === "not_configured" ? (
             <>
@@ -598,7 +770,7 @@ function AreaBriefing({ area, briefing, loading, error, language }) {
             <p className="mt-4 text-sm text-slate-400">{traffic?.message || copy(language, "trafficUnavailable")}</p>
           )}
           <p className="mt-4 border-t border-slate-800 pt-3 text-[11px] text-slate-500">
-            Traffic reports and nearby event mentions are not emergency dispatch data.
+            {copy(language, "emergencyDisclaimer")}
           </p>
         </section>
       </div>
@@ -614,7 +786,7 @@ function eventAge(timestamp) {
   return minutes < 1 ? "Just now" : `${minutes} min ago`;
 }
 
-function LiveIncidentStrip({ snapshot }) {
+function LiveIncidentStrip({ snapshot, language }) {
   const incidents = (snapshot.events || [])
     .filter(
       (event) =>
@@ -628,13 +800,13 @@ function LiveIncidentStrip({ snapshot }) {
     <section className="cp-panel overflow-hidden rounded-2xl border border-sky-500/25 bg-slate-900/70 lg:col-span-3">
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
-          <Radio className="h-4 w-4 text-rose-400" /> Civic event wire
+          <Radio className="h-4 w-4 text-rose-400" /> {copy(language, "liveIncident")}
         </div>
         <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300">
-          Demo / recorded events
+          {copy(language, "recordedEvents")}
         </span>
         <span className="ml-auto text-xs text-slate-500">
-          {incidents.length} active updates
+          {incidents.length} {copy(language, "incidentUpdates")}
         </span>
       </div>
       <div className="flex snap-x gap-3 overflow-x-auto p-3">
@@ -670,7 +842,7 @@ function LiveIncidentStrip({ snapshot }) {
           })
         ) : (
           <div className="px-2 py-2 text-sm text-slate-500">
-            No active incidents in the live wire.
+            {copy(language, "noLiveIncidents")}
           </div>
         )}
       </div>
@@ -678,7 +850,7 @@ function LiveIncidentStrip({ snapshot }) {
   );
 }
 
-function MedicalResponse({ snapshot, places, focusedArea }) {
+function MedicalResponse({ snapshot, places, focusedArea, language }) {
   const medicalEvents = (snapshot.events || [])
     .filter(
       (event) =>
@@ -715,11 +887,11 @@ function MedicalResponse({ snapshot, places, focusedArea }) {
           <div className="flex items-center gap-2 text-rose-300">
             <Ambulance className="h-5 w-5" />
             <span className="text-sm font-bold uppercase tracking-wide">
-              Medical response watch
+              {copy(language, "medicalWatch")}
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Event mentions from stored civic reports; this is not an emergency dispatch service.
+            {copy(language, "emergencyDatasetNotice")}
           </p>
         </div>
         <div className="text-right">
@@ -727,28 +899,28 @@ function MedicalResponse({ snapshot, places, focusedArea }) {
             {activeCases}
           </div>
           <div className="text-[10px] uppercase tracking-widest text-slate-500">
-            active cases
+            {copy(language, "activeCases")}
           </div>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
         <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
           <Hospital className="mb-1 h-4 w-4 text-sky-300" />
-          <span className="text-slate-400">Nearest response</span>
+          <span className="text-slate-400">{copy(language, "nearestResponse")}</span>
           <div className="mt-1 font-semibold text-slate-200">
-            {nearestHospital?.place.name || "No mapped hospital nearby"}
+            {nearestHospital?.place.name || copy(language, "noMappedHospital")}
           </div>
           {nearestHospital && (
             <div className="mt-1 text-[10px] text-slate-500">
-              Approx. {nearestHospital.distance.toFixed(1)} km · OpenStreetMap
+              {copy(language, "approximate")} {nearestHospital.distance.toFixed(1)} km · OpenStreetMap
             </div>
           )}
         </div>
         <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
           <Clock className="mb-1 h-4 w-4 text-amber-300" />
-          <span className="text-slate-400">High severity watch</span>
+          <span className="text-slate-400">{copy(language, "highSeverityWatch")}</span>
           <div className="mt-1 font-semibold text-slate-200">
-            {highSeverity} active events
+            {highSeverity} {copy(language, "activeEvents")}
           </div>
         </div>
       </div>
@@ -766,7 +938,7 @@ function MedicalResponse({ snapshot, places, focusedArea }) {
         ))}
         {!medicalEvents.length && (
           <div className="border-t border-slate-800 pt-2 text-xs text-emerald-300">
-            No emergency-related reports in this dataset.
+            {copy(language, "noEmergencyReports")}
           </div>
         )}
       </div>
@@ -1030,7 +1202,7 @@ function App() {
 
   useEffect(() => {
     fetchState();
-    const id = setInterval(fetchState, 4000);
+    const id = setInterval(fetchState, 30000);
     return () => clearInterval(id);
   }, [fetchState]);
 
@@ -1043,7 +1215,7 @@ function App() {
     setBusy(true);
     try {
       await fetchState();
-      flash("Live civic scores refreshed");
+      flash(copy(language, "liveScoresRefreshed"));
     } finally {
       setBusy(false);
     }
@@ -1065,7 +1237,7 @@ function App() {
     playRef.current = true;
     setPlaying(true);
     await fetch("/api/scenario/reset", { method: "POST" });
-    flash("Scenario started — normal city state");
+    flash(copy(language, "scenarioNormal"));
     await fetchState();
     for (let i = 0; i < 5; i++) {
       await new Promise((res) => setTimeout(res, 2600));
@@ -1142,7 +1314,7 @@ function App() {
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/[0.07] px-2.5 py-1 text-xs font-semibold text-emerald-300">
               <span className={`h-1.5 w-1.5 rounded-full ${areaBriefing?.weather?.status === "live" || areaBriefing?.news?.status === "live" ? "bg-emerald-400" : "bg-amber-400"}`}>
               </span>
-              {areaLoading ? (language === "hi" ? "जुड़ रहा है" : "CONNECTING") : areaBriefing?.weather?.status === "live" || areaBriefing?.news?.status === "live" ? (language === "hi" ? "लाइव डेटा" : "LIVE DATA") : (language === "hi" ? "डेमो डेटा" : "DEMO DATA")}
+              {areaLoading ? (language === "hi" ? "जुड़ रहा है" : "CONNECTING") : areaBriefing?.sources?.length ? (language === "hi" ? "लाइव स्रोत" : "LIVE SOURCES") : (language === "hi" ? "स्रोत उपलब्ध नहीं" : "SOURCES OFFLINE")}
             </span>
             <Chip tone="slate">
               <MapPin className="h-3 w-3" /> {snapshot?.city?.name || "Jaipur"}
@@ -1293,20 +1465,18 @@ function App() {
       <main className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         {loading && (
           <div className="flex h-64 items-center justify-center text-slate-400">
-            <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading civic
-            signals…
+            <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> {copy(language, "loadingCivic")}
           </div>
         )}
         {!loading && err && (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-6 text-amber-200">
             <div className="mb-1 flex items-center gap-2 font-semibold">
-              <AlertTriangle className="h-5 w-5" /> Could not reach the data
-              layer
+              <AlertTriangle className="h-5 w-5" /> {copy(language, "dataErrorTitle")}
             </div>
             <p className="text-sm">{err}</p>
             <p className="mt-2 text-sm text-amber-300/80">
-              If this is the first run, make sure the Supabase schema has been
-              created (see <code>supabase_migration.sql</code>).
+              {copy(language, "dataErrorHint")}{" "}
+              <code>CITYPULSE_DB_PATH</code> to a writable path.
             </p>
           </div>
         )}
@@ -1329,8 +1499,12 @@ function App() {
               </div>
               <div className="flex shrink-0 items-center gap-2 text-xs text-slate-400">
                 <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.07] px-3 py-1.5 text-emerald-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  {copy(language, "monitoring")}
+                  <span className={`h-1.5 w-1.5 rounded-full ${areaBriefing?.sources?.length ? "bg-emerald-400" : "bg-amber-400"}`} />
+                  {areaLoading
+                    ? copy(language, "loadingSources")
+                    : areaBriefing?.sources?.length
+                      ? copy(language, "monitoring")
+                      : copy(language, "noSources")}
                 </span>
                 <span className="hidden sm:inline">
                   Updated {fmtTime(snapshot.lastUpdated)}
@@ -1393,6 +1567,7 @@ function App() {
                 snapshot={snapshot}
                 correlation={activeCorrelation}
                 insight={latestInsight}
+                language={language}
               />
             )}
             {tab === "events" && (
@@ -1400,12 +1575,13 @@ function App() {
                 snapshot={snapshot}
                 selectedEvent={selectedEvent}
                 setSelectedEvent={setSelectedEvent}
+                language={language}
               />
             )}
             {tab === "alerts" && (
-              <Alerts snapshot={snapshot} refresh={fetchState} />
+              <Alerts snapshot={snapshot} refresh={fetchState} language={language} />
             )}
-            {tab === "replay" && <Replay snapshot={snapshot} />}
+            {tab === "replay" && <Replay snapshot={snapshot} language={language} />}
               </motion.div>
             </AnimatePresence>
           </>
@@ -1444,21 +1620,21 @@ function Overview({
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <Reveal className="lg:col-span-3">
-        <LiveIncidentStrip snapshot={snapshot} />
+        <LiveIncidentStrip snapshot={snapshot} language={language} />
       </Reveal>
       {/* Hero pulse */}
       <Reveal className="lg:col-span-1" delay={0.04}>
       <div className="cp-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Civic Pulse · Demo model
+            {copy(language, "civicPulse")}
           </div>
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value)}
             className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 outline-none"
           >
-            <option value="city">Whole City</option>
+            <option value="city">{copy(language, "wholeCity")}</option>
             {snapshot.zones.map((v) => (
               <option key={v.zone.id} value={v.zone.id}>
                 {v.zone.label} · {v.zone.name}
@@ -1472,10 +1648,10 @@ function Overview({
           </div>
 
           <div className="w-full flex-1 space-y-3">
-            <FactorBar label="Weather" value={f.weather} />
-            <FactorBar label="Traffic" value={f.traffic} />
-            <FactorBar label="Transit" value={f.transit} />
-            <FactorBar label="Incidents" value={f.incidents} />
+            <FactorBar label={copy(language, "weather")} value={f.weather} />
+            <FactorBar label={copy(language, "traffic")} value={f.traffic} />
+            <FactorBar label={copy(language, "transit")} value={f.transit} />
+            <FactorBar label={copy(language, "incidents")} value={f.incidents} />
           </div>
         </div>
         <p className="mt-4 text-xs leading-relaxed text-slate-500">
@@ -1505,7 +1681,7 @@ function Overview({
                       isResolved ? "text-emerald-300" : "text-orange-300"
                     }`}
                   >
-                    {isResolved ? "● Incident Resolved" : "● Incident Detected"}
+                    {isResolved ? `● ${copy(language, "incidentResolved")}` : `● ${copy(language, "incidentDetected")}`}
                   </div>
 
                   <div className="mt-1.5 text-sm font-semibold text-slate-100">
@@ -1513,7 +1689,7 @@ function Overview({
                   </div>
 
                   <div className="mt-1 text-xs text-slate-400">
-                    {zone?.zone?.label || "Unknown Zone"}
+                    {zone?.zone?.label || copy(language, "unknownZone")}
                   </div>
                 </div>
               );
@@ -1526,54 +1702,54 @@ function Overview({
       <Reveal className="lg:col-span-2" delay={0.08}>
       <div>
         <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
-          Active Signals
+          {copy(language, "activeSignals")}
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SignalCard
             source="weather"
             icon={CloudRain}
-            name="Weather"
+            name={copy(language, "weather")}
             severity={s.weather.severity}
             status={
               !s.weather.event
                 ? language === "hi"
                   ? "इस डेटासेट में मौसम रिपोर्ट नहीं"
-                  : "No weather report in this dataset"
+                  : copy(language, "noWeatherReport")
                 : s.weather.event?.metadata?.temperature != null
                 ? `${s.weather.event?.title || s.weather.title} · ${s.weather.event.metadata.temperature}°C`
                 : s.weather.rainfall >= 4
-                  ? `Heavy rainfall · ${s.weather.rainfall} mm/h`
-                  : `Clear · ${s.weather.rainfall} mm/h`
+                  ? `${copy(language, "heavyRain")} · ${s.weather.rainfall} mm/h`
+                  : `${copy(language, "clearRain")} · ${s.weather.rainfall} mm/h`
             }
-            sub={`Humidity ${
+            sub={s.weather.event ? `${copy(language, "humidity")} ${
               s.weather.event?.metadata?.humidity != null
                 ? `${s.weather.event.metadata.humidity}%`
                 : "—"
-            } · Rainfall ${s.weather.rainfall} mm/h`}
+            } · ${copy(language, "rainfall")} ${s.weather.rainfall} mm/h` : undefined}
           />
           <SignalCard
             source="traffic"
             icon={Car}
-            name="Traffic"
+            name={copy(language, "traffic")}
             severity={s.traffic.severity}
-            status={s.traffic.count ? `${s.traffic.count} recorded incidents` : language === "hi" ? "कोई यातायात रिपोर्ट दर्ज नहीं" : "No traffic reports recorded"}
-            change={Math.round(s.traffic.pct)}
+            status={s.traffic.count ? `${s.traffic.count} ${copy(language, "recordedIncidents")}` : copy(language, "noTrafficReports")}
+            change={s.traffic.count ? Math.round(s.traffic.pct) : null}
           />
           <SignalCard
             source="transit"
             icon={Bus}
-            name="Transit"
+            name={copy(language, "transit")}
             severity={s.transit.severity}
-            status={s.transit.count ? `${s.transit.count} recorded route delays` : language === "hi" ? "कोई मार्ग विलंब रिपोर्ट नहीं" : "No transit delay reports"}
-            change={Math.round(s.transit.pct)}
-            sub={`avg delay ${s.transit.avgDelay || 0} min`}
+            status={s.transit.count ? `${s.transit.count} ${copy(language, "recordedRouteDelays")}` : copy(language, "noTransitReports")}
+            change={s.transit.count ? Math.round(s.transit.pct) : null}
+            sub={s.transit.count ? `${copy(language, "averageDelay")} ${s.transit.avgDelay || 0} min` : undefined}
           />
           <SignalCard
             source="incidents"
             icon={AlertTriangle}
-            name="Incidents"
+            name={copy(language, "incidents")}
             severity={s.incidents.severity}
-            status={s.incidents.count ? `${s.incidents.count} high-severity reports` : language === "hi" ? "कोई उच्च-गंभीरता रिपोर्ट नहीं" : "No high-severity reports"}
+            status={s.incidents.count ? `${s.incidents.count} ${copy(language, "highSeverityReports")}` : copy(language, "noHighSeverityReports")}
           />
         </div>
 
@@ -1586,7 +1762,7 @@ function Overview({
                   <div className="flex items-center gap-2 text-sky-300">
                     <Zap className="h-5 w-5" />
                     <span className="text-sm font-bold uppercase tracking-wide">
-                      Possible Correlation Detected
+                      {copy(language, "detectedCorrelation")}
                     </span>
                   </div>
                   <p className="mt-2 max-w-xl text-sm text-slate-200">
@@ -1616,31 +1792,40 @@ function Overview({
                     {correlation.confidence}%
                   </div>
                   <div className="text-[11px] uppercase tracking-widest text-slate-400">
-                    confidence
+                    {copy(language, "confidence")}
                   </div>
                 </div>
               </div>
               <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-xs font-medium text-amber-300/90">
-                  ⚠ Possible correlation — not confirmed causation.
+                  ⚠ {copy(language, "correlationDisclaimer")}
                 </span>
                 <button
                   onClick={goIntel}
                   className="inline-flex items-center gap-1 rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-400"
                 >
-                  Explore Pattern <ChevronRight className="h-4 w-4" />
+                  {copy(language, "explorePattern")} <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
+            </div>
+          ) : view.pulse.score == null ? (
+            <div className="cp-panel rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+              <div className="flex items-center gap-2 font-semibold text-slate-200">
+                <CircleDot className="h-4 w-4 text-slate-400" />
+                {copy(language, "noSignalData")}
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                {copy(language, "noSignalDetail")}
+              </p>
             </div>
           ) : (
             <div className="cp-panel rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
               <div className="flex items-center gap-2 text-emerald-300">
                 <ShieldCheck className="h-5 w-5" />
-                <span className="font-semibold">All signals nominal</span>
+                <span className="font-semibold">{copy(language, "nominalSignals")}</span>
               </div>
               <p className="mt-1 text-sm text-slate-400">
-                No cross-signal correlations detected. Run the Zone-3 scenario
-                to see the intelligence engine in action.
+                {copy(language, "noCorrelationDescription")}
               </p>
             </div>
           )}
@@ -1650,6 +1835,7 @@ function Overview({
           snapshot={snapshot}
           places={places}
           focusedArea={focusedArea}
+          language={language}
         />
 
         {insight && (
@@ -1775,10 +1961,10 @@ function MapTab({
 }) {
   const toggle = (k) => setLayers((p) => ({ ...p, [k]: !p[k] }));
   const LAYERS = [
-    { k: "weather", label: "Weather", c: "text-sky-300" },
-    { k: "traffic", label: "Traffic", c: "text-amber-300" },
-    { k: "transit", label: "Transit", c: "text-violet-300" },
-    { k: "anomalies", label: "Anomalies", c: "text-rose-300" },
+    { k: "weather", label: "layerWeather", c: "text-sky-300" },
+    { k: "traffic", label: "layerTraffic", c: "text-amber-300" },
+    { k: "transit", label: "layerTransit", c: "text-violet-300" },
+    { k: "anomalies", label: "layerAnomalies", c: "text-rose-300" },
   ];
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
@@ -1800,7 +1986,7 @@ function MapTab({
               <span
                 className={`h-2 w-2 rounded-full ${layers[l.k] ? "bg-current " + l.c : "bg-slate-600"}`}
               />{" "}
-              {l.label}
+              {copy(language, l.label)}
             </button>
           ))}
         </div>
@@ -1818,14 +2004,13 @@ function MapTab({
       </div>
       <div className="lg:col-span-1">
         <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-          Event Details
+          {copy(language, "eventDetails")}
         </div>
         {selectedEvent ? (
-          <EventPanel event={selectedEvent} snapshot={snapshot} />
+          <EventPanel event={selectedEvent} snapshot={snapshot} language={language} />
         ) : (
           <div className="mt-3 rounded-xl border border-dashed border-slate-800 p-6 text-center text-sm text-slate-500">
-            Click any marker on the map to inspect an event and its related
-            signals.
+            {copy(language, "selectMapMarker")}
           </div>
         )}
       </div>
@@ -1833,7 +2018,7 @@ function MapTab({
   );
 }
 
-function EventPanel({ event, snapshot }) {
+function EventPanel({ event, snapshot, language }) {
   const zone = snapshot.zones.find((v) => v.zone.id === event.zone_id);
   const corr = zone?.correlation;
   const s = sev(event.severity);
@@ -1850,20 +2035,20 @@ function EventPanel({ event, snapshot }) {
       </div>
       <div className="mt-3 space-y-2 text-sm">
         <Row
-          k="Type"
+          k={language === "hi" ? "प्रकार" : "Type"}
           v={`${M?.name || event.source} · ${event.event_type || "—"}`}
         />
         <Row
-          k="Severity"
+          k={language === "hi" ? "गंभीरता" : "Severity"}
           v={<span className={`font-semibold ${s.text}`}>{s.label}</span>}
         />
-        <Row k="Zone" v={zone?.zone.label + " · " + zone?.zone.name} />
-        <Row k="Time" v={fmtTime(event.timestamp)} />
+        <Row k={language === "hi" ? "क्षेत्र" : "Zone"} v={zone?.zone.label + " · " + zone?.zone.name} />
+        <Row k={language === "hi" ? "समय" : "Time"} v={fmtTime(event.timestamp)} />
         {event.value != null && (
-          <Row k="Value" v={`${event.value} ${event.unit || ""}`} />
+          <Row k={language === "hi" ? "मान" : "Value"} v={`${event.value} ${event.unit || ""}`} />
         )}
-        {event.metadata?.road && <Row k="Road" v={event.metadata.road} />}
-        {event.metadata?.route && <Row k="Route" v={event.metadata.route} />}
+        {event.metadata?.road && <Row k={language === "hi" ? "सड़क" : "Road"} v={event.metadata.road} />}
+        {event.metadata?.route && <Row k={language === "hi" ? "मार्ग" : "Route"} v={event.metadata.route} />}
       </div>
       {event.description && (
         <p className="mt-3 text-sm text-slate-400">{event.description}</p>
@@ -1871,11 +2056,11 @@ function EventPanel({ event, snapshot }) {
       {corr && (
         <div className="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
           <div className="text-xs font-semibold text-sky-300">
-            Possible relationship
+            {language === "hi" ? "संभावित संबंध" : "Possible relationship"}
           </div>
           <p className="mt-1 text-xs text-slate-300">{corr.explanation}</p>
           <div className="mt-2 text-xs text-slate-400">
-            Confidence <b className="text-sky-300">{corr.confidence}%</b>
+            {copy(language, "confidence")} <b className="text-sky-300">{corr.confidence}%</b>
           </div>
         </div>
       )}
@@ -1890,18 +2075,17 @@ const Row = ({ k, v }) => (
 );
 
 /* ----------------------------- Intelligence ----------------------------- */
-function Intelligence({ snapshot, correlation, insight }) {
+function Intelligence({ snapshot, correlation, insight, language }) {
   if (!correlation) {
     return (
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-10 text-center">
         <Network className="mx-auto h-10 w-10 text-slate-600" />
         <div className="mt-3 font-semibold text-slate-200">
-          No active correlations
+          {copy(language, "noActiveCorrelations")}
         </div>
         <p className="mx-auto mt-1 max-w-md text-sm text-slate-400">
           The correlation engine surfaces links when multiple civic signals
-          spike in the same zone and time window. Run the Zone-3 scenario to
-          generate one.
+          {copy(language, "noCorrelationDescription")}
         </p>
       </div>
     );
@@ -1913,7 +2097,7 @@ function Intelligence({ snapshot, correlation, insight }) {
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 lg:col-span-2">
         <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-          Correlation Pattern — {correlation.zoneLabel}
+          {copy(language, "correlationPattern")} — {correlation.zoneLabel}
         </div>
         {/* visual tree */}
         <div className="mt-6 flex flex-col items-center">
@@ -1940,7 +2124,7 @@ function Intelligence({ snapshot, correlation, insight }) {
         <div className="rounded-2xl border border-sky-500/30 bg-slate-900/50 p-5">
           <div className="flex items-end justify-between">
             <div className="text-sm font-semibold text-slate-200">
-              Confidence
+              {copy(language, "confidence")}
             </div>
             <div className="text-3xl font-extrabold text-sky-300">
               {correlation.confidence}%
@@ -1953,15 +2137,15 @@ function Intelligence({ snapshot, correlation, insight }) {
             />
           </div>
           <div className="mt-4 space-y-2 text-xs">
-            <FactorLine label="Location overlap" v={factors.location} />
-            <FactorLine label="Time overlap" v={factors.time} />
-            <FactorLine label="Anomaly strength" v={factors.anomaly} />
-            <FactorLine label="Signal strength" v={factors.signal} />
+            <FactorLine label={copy(language, "locationOverlap")} v={factors.location} />
+            <FactorLine label={copy(language, "timeOverlap")} v={factors.time} />
+            <FactorLine label={copy(language, "anomalyStrength")} v={factors.anomaly} />
+            <FactorLine label={copy(language, "signalStrength")} v={factors.signal} />
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-          <div className="text-sm font-semibold text-slate-200">Evidence</div>
+          <div className="text-sm font-semibold text-slate-200">{copy(language, "evidence")}</div>
           <div className="mt-3 space-y-2">
             {ev.map((e, i) => (
               <div
@@ -1975,20 +2159,20 @@ function Intelligence({ snapshot, correlation, insight }) {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-400">
             <div>
-              <div className="text-slate-500">Shared area</div>
+              <div className="text-slate-500">{copy(language, "sharedArea")}</div>
               <div className="font-semibold text-slate-200">
                 {correlation.zoneLabel}
               </div>
             </div>
             <div>
-              <div className="text-slate-500">Shared time</div>
+              <div className="text-slate-500">{copy(language, "sharedTime")}</div>
               <div className="font-semibold text-slate-200">
                 {fmtTime(win?.start)} – {fmtTime(win?.end)}
               </div>
             </div>
           </div>
           <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
-            ⚠ Possible correlation — not confirmed causation.
+            ⚠ {copy(language, "correlationDisclaimer")}
           </div>
         </div>
 
@@ -1997,7 +2181,7 @@ function Intelligence({ snapshot, correlation, insight }) {
             <div className="mb-1 flex items-center gap-2 text-violet-300">
               <Sparkles className="h-4 w-4" />
               <span className="text-sm font-semibold">
-                Grounded explanation
+                {copy(language, "groundedExplanation")}
               </span>
             </div>
             <p className="text-sm text-slate-200">{insight.summary}</p>
@@ -2042,7 +2226,7 @@ const Line = () => (
 );
 
 /* ----------------------------- Events / Timeline ----------------------------- */
-function Events({ snapshot, selectedEvent, setSelectedEvent }) {
+function Events({ snapshot, selectedEvent, setSelectedEvent, language }) {
   const timeline = useMemo(() => {
     const evs = [...(snapshot.events || [])].sort(
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
@@ -2053,7 +2237,7 @@ function Events({ snapshot, selectedEvent, setSelectedEvent }) {
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <div className="lg:col-span-2">
         <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
-          Chronological Event Timeline
+          {copy(language, "chronologicalTimeline")}
         </div>
         <div className="relative ml-3 border-l border-slate-800 pl-6">
           {timeline.map((e) => {
@@ -2085,20 +2269,20 @@ function Events({ snapshot, selectedEvent, setSelectedEvent }) {
           })}
           {timeline.length === 0 && (
             <div className="text-sm text-slate-500">
-              No events yet. Reset or play the scenario.
+              {language === "hi" ? "अभी कोई घटना नहीं है। डेमो रीसेट करें या चलाएँ।" : "No events yet. Reset or play the scenario."}
             </div>
           )}
         </div>
       </div>
       <div className="lg:col-span-1">
         <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-          Event Details
+          {copy(language, "eventDetails")}
         </div>
         {selectedEvent ? (
-          <EventPanel event={selectedEvent} snapshot={snapshot} />
+          <EventPanel event={selectedEvent} snapshot={snapshot} language={language} />
         ) : (
           <div className="mt-3 rounded-xl border border-dashed border-slate-800 p-6 text-center text-sm text-slate-500">
-            Select an event to see full details.
+            {copy(language, "selectEventDetails")}
           </div>
         )}
       </div>
@@ -2107,7 +2291,7 @@ function Events({ snapshot, selectedEvent, setSelectedEvent }) {
 }
 
 /* ----------------------------- Alerts ----------------------------- */
-function Alerts({ snapshot, refresh }) {
+function Alerts({ snapshot, refresh, language }) {
   async function resolve(id) {
     await fetch(`/api/alerts/${id}/resolve`, { method: "POST" });
     refresh();
@@ -2116,13 +2300,12 @@ function Alerts({ snapshot, refresh }) {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
-        Alert Center
+        {copy(language, "alertCenter")}
       </div>
       {alerts.length === 0 && (
         <div className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">
           <Bell className="mx-auto mb-2 h-8 w-8 text-slate-600" />
-          No alerts. The engine raises alerts when a correlation crosses the
-          confidence threshold.
+          {copy(language, "noAlerts")}
         </div>
       )}
       <div className="space-y-3">
@@ -2157,7 +2340,7 @@ function Alerts({ snapshot, refresh }) {
                     onClick={() => resolve(a.id)}
                     className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
                   >
-                    Mark resolved
+                    {copy(language, "markResolved")}
                   </button>
                 </div>
               )}
@@ -2170,7 +2353,7 @@ function Alerts({ snapshot, refresh }) {
 }
 
 /* ----------------------------- Replay ----------------------------- */
-function Replay({ snapshot }) {
+function Replay({ snapshot, language }) {
   const events = useMemo(
     () =>
       [...(snapshot.events || [])].sort(
@@ -2204,17 +2387,17 @@ function Replay({ snapshot }) {
     <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
       <div className="flex flex-wrap items-center gap-3">
         <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-          Historical Replay
+          {copy(language, "historicalReplay")}
         </div>
         <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-          DEMO REPLAY
+          {copy(language, "demoReplay")}
         </span>
         <button
           onClick={play}
           disabled={playing || !events.length}
           className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-50"
         >
-          <Play className="h-4 w-4" /> {playing ? "Replaying…" : "Play"}
+          <Play className="h-4 w-4" /> {playing ? copy(language, "replaying") : copy(language, "play")}
         </button>
       </div>
       <input
@@ -2258,8 +2441,7 @@ function Replay({ snapshot }) {
           })}
       </div>
       <p className="mt-4 text-xs text-slate-500">
-        Scrub or press Play to watch how the civic pattern develops over time
-        using stored synthetic data.
+        {copy(language, "replayDescription")}
       </p>
     </div>
   );

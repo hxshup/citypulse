@@ -1,633 +1,379 @@
 #!/usr/bin/env python3
-"""
-CityPulse Backend API Test Suite
-Tests the Next.js catch-all route at /app/app/api/[[...path]]/route.js
-Base URL: http://localhost:3000/api
+"""Black-box smoke tests for CityPulse's Next.js API.
+
+The suite resets the demo scenario and resolves one alert, so it requires the
+explicit ``--allow-mutations`` flag. Use a disposable CITYPULSE_DB_PATH when
+running it against a local server.
 """
 
-import requests
+from __future__ import annotations
+
+import argparse
 import json
-import time
-from typing import Dict, Any, List
+import os
+import sys
+from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
-BASE_URL = "http://localhost:3000/api"
+DEFAULT_BASE_URL = "http://localhost:3000/api"
+TIMEOUT_SECONDS = 10
+checks: list[tuple[str, bool, str]] = []
+base_url = DEFAULT_BASE_URL
 
-def log_test(test_name: str, passed: bool, details: str = ""):
-    """Log test results"""
-    status = "✅ PASS" if passed else "❌ FAIL"
-    print(f"\n{status}: {test_name}")
-    if details:
-        print(f"  Details: {details}")
 
-def test_scenario_reset():
-    """Test 1: POST /api/scenario/reset -> returns {step:0}"""
-    print("\n" + "="*80)
-    print("TEST 1: Scenario Reset")
-    print("="*80)
-    
+def check(name: str, passed: bool, details: str = "") -> bool:
+    checks.append((name, passed, details))
+    status = "PASS" if passed else "FAIL"
+    suffix = f" - {details}" if details else ""
+    print(f"[{status}] {name}{suffix}")
+    return passed
+
+
+def request_json(
+    method: str,
+    path: str,
+    *,
+    headers: dict[str, str] | None = None,
+) -> tuple[int, Any]:
+    url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+    request = Request(url, headers=headers or {}, method=method)
     try:
-        response = requests.post(f"{BASE_URL}/scenario/reset", timeout=10)
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {json.dumps(response.json(), indent=2)}")
-        
-        if response.status_code != 200:
-            log_test("POST /api/scenario/reset status", False, f"Expected 200, got {response.status_code}")
-            return False
-        
-        data = response.json()
-        if "step" not in data:
-            log_test("POST /api/scenario/reset response", False, "Missing 'step' field")
-            return False
-        
-        if data["step"] != 0:
-            log_test("POST /api/scenario/reset step value", False, f"Expected step=0, got {data['step']}")
-            return False
-        
-        log_test("POST /api/scenario/reset", True, f"Returned step={data['step']}")
-        return True
-        
-    except Exception as e:
-        log_test("POST /api/scenario/reset", False, f"Exception: {str(e)}")
-        return False
+        with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+            status = response.status
+            body = response.read()
+    except HTTPError as error:
+        status = error.code
+        body = error.read()
+    except URLError as error:
+        raise RuntimeError(f"Cannot reach {url}: {error.reason}") from error
 
-def test_initial_state():
-    """Test 1b: GET /api/state after reset -> verify normal state"""
-    print("\n" + "="*80)
-    print("TEST 1b: Initial State Verification")
-    print("="*80)
-    
+    if not body:
+        return status, None
     try:
-        response = requests.get(f"{BASE_URL}/state", timeout=10)
-        print(f"Status Code: {response.status_code}")
-        
-        if response.status_code != 200:
-            log_test("GET /api/state status", False, f"Expected 200, got {response.status_code}")
-            return False
-        
-        data = response.json()
-        print(f"Response keys: {list(data.keys())}")
-        
-        # Check zones length == 4
-        zones = data.get("zones", [])
-        if len(zones) != 4:
-            log_test("Initial state zones count", False, f"Expected 4 zones, got {len(zones)}")
-        else:
-            log_test("Initial state zones count", True, f"Found {len(zones)} zones")
-        
-        # Check events length == 20
-        events = data.get("events", [])
-        if len(events) != 20:
-            log_test("Initial state events count", False, f"Expected 20 events, got {len(events)}")
-        else:
-            log_test("Initial state events count", True, f"Found {len(events)} events")
-        
-        # Check city pulse near 100
-        city_pulse = data.get("city", {}).get("pulse", 0)
-        if city_pulse < 95 or city_pulse > 100:
-            log_test("Initial city pulse", False, f"Expected ~100, got {city_pulse}")
-        else:
-            log_test("Initial city pulse", True, f"City pulse = {city_pulse}")
-        
-        # Check feeds all status 'ok'
-        feeds = data.get("feeds", [])
-        all_ok = all(f.get("status") == "ok" for f in feeds)
-        if not all_ok:
-            feed_statuses = {f.get("source"): f.get("status") for f in feeds}
-            log_test("Initial feeds status", False, f"Not all feeds 'ok': {feed_statuses}")
-        else:
-            log_test("Initial feeds status", True, "All feeds status='ok'")
-        
-        # Check correlations empty
-        correlations = data.get("correlations", [])
-        if len(correlations) != 0:
-            log_test("Initial correlations empty", False, f"Expected 0 correlations, got {len(correlations)}")
-        else:
-            log_test("Initial correlations empty", True, "Correlations array is empty")
-        
-        return True
-        
-    except Exception as e:
-        log_test("GET /api/state", False, f"Exception: {str(e)}")
-        return False
+        return status, json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return status, body.decode("utf-8", errors="replace")
 
-def test_scenario_advance_5_steps():
-    """Test 2: Advance scenario 5 times and verify messages"""
-    print("\n" + "="*80)
-    print("TEST 2: Scenario Advance (5 steps)")
-    print("="*80)
-    
-    expected_messages = {
-        1: "Heavy rainfall",
-        2: "Traffic incidents",
-        3: "Transit delays",
-        4: "Anomalies",
-        5: "insight"
-    }
-    
-    all_passed = True
-    
-    for step in range(1, 6):
-        print(f"\n--- Advancing to Step {step} ---")
-        try:
-            response = requests.post(f"{BASE_URL}/scenario/advance", timeout=10)
-            print(f"Status Code: {response.status_code}")
-            
-            if response.status_code != 200:
-                log_test(f"Step {step} advance status", False, f"Expected 200, got {response.status_code}")
-                all_passed = False
-                continue
-            
-            data = response.json()
-            print(f"Response: {json.dumps(data, indent=2)}")
-            
-            if data.get("step") != step:
-                log_test(f"Step {step} number", False, f"Expected step={step}, got {data.get('step')}")
-                all_passed = False
-            else:
-                log_test(f"Step {step} number", True, f"Step = {step}")
-            
-            message = data.get("message", "").lower()
-            expected_keyword = expected_messages[step].lower()
-            
-            if expected_keyword not in message:
-                log_test(f"Step {step} message", False, f"Expected '{expected_keyword}' in message, got: {message}")
-                all_passed = False
-            else:
-                log_test(f"Step {step} message", True, f"Message contains '{expected_keyword}'")
-            
-            # Step 4 should have correlation
-            if step == 4:
-                if "correlation" not in data:
-                    log_test(f"Step {step} correlation field", False, "Missing 'correlation' field")
-                    all_passed = False
-                else:
-                    log_test(f"Step {step} correlation field", True, "Correlation field present")
-            
-            # Step 5 should have summary and ai flag
-            if step == 5:
-                if "summary" not in data:
-                    log_test(f"Step {step} summary field", False, "Missing 'summary' field")
-                    all_passed = False
-                else:
-                    log_test(f"Step {step} summary field", True, f"Summary present: {data['summary'][:50]}...")
-                
-                if "ai" not in data:
-                    log_test(f"Step {step} ai flag", False, "Missing 'ai' field")
-                    all_passed = False
-                else:
-                    log_test(f"Step {step} ai flag", True, f"AI flag = {data['ai']}")
-            
-            time.sleep(0.5)  # Small delay between steps
-            
-        except Exception as e:
-            log_test(f"Step {step} advance", False, f"Exception: {str(e)}")
-            all_passed = False
-    
-    return all_passed
 
-def test_final_state():
-    """Test 3: GET /api/state after full scenario and verify detailed state"""
-    print("\n" + "="*80)
-    print("TEST 3: Final State Verification (After 5 Steps)")
-    print("="*80)
-    
+def check_response(method: str, path: str, expected_status: int = 200) -> tuple[bool, Any]:
     try:
-        response = requests.get(f"{BASE_URL}/state", timeout=10)
-        print(f"Status Code: {response.status_code}")
-        
-        if response.status_code != 200:
-            log_test("GET /api/state final status", False, f"Expected 200, got {response.status_code}")
-            return False
-        
-        data = response.json()
-        
-        # Find Zone 3
-        zones = data.get("zones", [])
-        zone3 = None
-        for z in zones:
-            if z.get("zone", {}).get("label") == "Zone 3":
-                zone3 = z
-                break
-        
-        if not zone3:
-            log_test("Zone 3 found", False, "Zone 3 not found in zones array")
-            return False
-        
-        log_test("Zone 3 found", True, f"Zone 3: {zone3.get('zone', {}).get('name')}")
-        
-        # Check Zone 3 has 3 anomalies
-        zone3_anomalies = zone3.get("anomalies", [])
-        if len(zone3_anomalies) != 3:
-            log_test("Zone 3 anomalies count", False, f"Expected 3 anomalies, got {len(zone3_anomalies)}")
-        else:
-            log_test("Zone 3 anomalies count", True, f"Found {len(zone3_anomalies)} anomalies")
-            
-            # Check anomaly metrics
-            expected_metrics = ["rainfall_mm_h", "traffic_incidents", "transit_delays"]
-            found_metrics = [a.get("metric") for a in zone3_anomalies]
-            print(f"  Found metrics: {found_metrics}")
-            
-            for metric in expected_metrics:
-                if metric in found_metrics:
-                    log_test(f"Zone 3 anomaly metric '{metric}'", True, "Present")
-                else:
-                    log_test(f"Zone 3 anomaly metric '{metric}'", False, "Missing")
-            
-            # Check all severity 'high'
-            all_high = all(a.get("severity") == "high" for a in zone3_anomalies)
-            if all_high:
-                log_test("Zone 3 anomalies severity", True, "All severity='high'")
-            else:
-                severities = [a.get("severity") for a in zone3_anomalies]
-                log_test("Zone 3 anomalies severity", False, f"Not all high: {severities}")
-        
-        # Check Zone 3 pulse significantly lower than 100
-        zone3_pulse = zone3.get("pulse", {}).get("score", 100)
-        if zone3_pulse >= 70:
-            log_test("Zone 3 pulse drop", False, f"Expected pulse < 70, got {zone3_pulse}")
-        else:
-            log_test("Zone 3 pulse drop", True, f"Zone 3 pulse = {zone3_pulse}")
-        
-        # Check correlations array has >= 1 item
-        correlations = data.get("correlations", [])
-        if len(correlations) < 1:
-            log_test("Correlations present", False, f"Expected >= 1 correlation, got {len(correlations)}")
-        else:
-            log_test("Correlations present", True, f"Found {len(correlations)} correlation(s)")
-            
-            # Check first correlation structure
-            corr = correlations[0]
-            print(f"  Correlation: {json.dumps(corr, indent=2)}")
-            
-            # Check confidence is numeric
-            confidence = corr.get("confidence")
-            if isinstance(confidence, (int, float)):
-                log_test("Correlation confidence numeric", True, f"Confidence = {confidence}")
-            else:
-                log_test("Correlation confidence numeric", False, f"Confidence not numeric: {confidence}")
-            
-            # Check time_overlap is numeric
-            time_overlap = corr.get("time_overlap")
-            if isinstance(time_overlap, (int, float)):
-                log_test("Correlation time_overlap numeric", True, f"Time overlap = {time_overlap}")
-            else:
-                log_test("Correlation time_overlap numeric", False, f"Time overlap not numeric: {time_overlap}")
-            
-            # Check factors object exists
-            factors = corr.get("factors")
-            if isinstance(factors, dict):
-                log_test("Correlation factors object", True, f"Factors keys: {list(factors.keys())}")
-            else:
-                log_test("Correlation factors object", False, f"Factors not an object: {type(factors)}")
-            
-            # Check evidence array exists
-            evidence = corr.get("evidence")
-            if isinstance(evidence, list):
-                log_test("Correlation evidence array", True, f"Evidence items: {len(evidence)}")
-            else:
-                log_test("Correlation evidence array", False, f"Evidence not an array: {type(evidence)}")
-        
-        # Check insights array has >= 1 item
-        insights = data.get("insights", [])
-        if len(insights) < 1:
-            log_test("Insights present", False, f"Expected >= 1 insight, got {len(insights)}")
-        else:
-            log_test("Insights present", True, f"Found {len(insights)} insight(s)")
-            
-            # Check first insight structure
-            insight = insights[0]
-            print(f"  Insight: {json.dumps(insight, indent=2)}")
-            
-            summary = insight.get("summary", "")
-            if summary:
-                log_test("Insight summary non-empty", True, f"Summary: {summary[:50]}...")
-            else:
-                log_test("Insight summary non-empty", False, "Summary is empty")
-            
-            ai_flag = insight.get("metadata", {}).get("ai")
-            if ai_flag is not None:
-                log_test("Insight metadata.ai present", True, f"AI = {ai_flag}")
-            else:
-                log_test("Insight metadata.ai present", False, "AI flag missing")
-        
-        # Check alerts array has >= 1 active alert with severity 'high'
-        alerts = data.get("alerts", [])
-        if len(alerts) < 1:
-            log_test("Alerts present", False, f"Expected >= 1 alert, got {len(alerts)}")
-        else:
-            log_test("Alerts present", True, f"Found {len(alerts)} alert(s)")
-            
-            active_high_alerts = [a for a in alerts if a.get("status") == "active" and a.get("severity") == "high"]
-            if len(active_high_alerts) < 1:
-                log_test("Active high severity alert", False, f"No active high severity alerts found")
-            else:
-                log_test("Active high severity alert", True, f"Found {len(active_high_alerts)} active high alert(s)")
-        
-        return True
-        
-    except Exception as e:
-        log_test("GET /api/state final", False, f"Exception: {str(e)}")
+        status, payload = request_json(method, path)
+    except (OSError, RuntimeError) as error:
+        return check(f"{method} {path}", False, str(error)), None
+    passed = status == expected_status
+    detail = f"expected HTTP {expected_status}, got {status}"
+    if not passed and isinstance(payload, dict) and payload.get("error"):
+        detail += f" ({payload['error']})"
+    check(f"{method} {path}", passed, "" if passed else detail)
+    return passed, payload
+
+
+def test_health() -> bool:
+    passed, payload = check_response("GET", "")
+    if not passed:
         return False
+    valid = (
+        isinstance(payload, dict)
+        and payload.get("app") == "CityPulse"
+        and payload.get("status") == "ok"
+        and payload.get("database") == "sqlite"
+    )
+    return check("health response identifies the SQLite backend", valid, str(payload))
 
-def test_list_endpoints():
-    """Test 4: GET list endpoints return JSON arrays"""
-    print("\n" + "="*80)
-    print("TEST 4: List Endpoints Return Arrays")
-    print("="*80)
-    
-    endpoints = {
-        "/zones": 4,
-        "/events": 20,  # Should be > 0
-        "/anomalies": 3,
-        "/correlations": 1,
-        "/insights": 1,
-        "/alerts": 1,
-    }
-    
-    all_passed = True
-    
-    for endpoint, expected_min in endpoints.items():
-        try:
-            response = requests.get(f"{BASE_URL}{endpoint}", timeout=10)
-            print(f"\nGET {endpoint}")
-            print(f"Status Code: {response.status_code}")
-            
-            if response.status_code != 200:
-                log_test(f"GET {endpoint} status", False, f"Expected 200, got {response.status_code}")
-                all_passed = False
-                continue
-            
-            data = response.json()
-            
-            # Check if it's an array
-            if not isinstance(data, list):
-                log_test(f"GET {endpoint} returns array", False, f"Expected array, got {type(data).__name__}")
-                print(f"Response: {json.dumps(data, indent=2)}")
-                all_passed = False
-                continue
-            
-            log_test(f"GET {endpoint} returns array", True, f"Array with {len(data)} items")
-            
-            # Check minimum count
-            if endpoint == "/events":
-                if len(data) > 0:
-                    log_test(f"GET {endpoint} count", True, f"Found {len(data)} items (> 0)")
-                else:
-                    log_test(f"GET {endpoint} count", False, f"Expected > 0, got {len(data)}")
-                    all_passed = False
-            else:
-                if len(data) >= expected_min:
-                    log_test(f"GET {endpoint} count", True, f"Found {len(data)} items (>= {expected_min})")
-                else:
-                    log_test(f"GET {endpoint} count", False, f"Expected >= {expected_min}, got {len(data)}")
-                    all_passed = False
-            
-        except Exception as e:
-            log_test(f"GET {endpoint}", False, f"Exception: {str(e)}")
-            all_passed = False
-    
-    return all_passed
 
-def test_event_by_id():
-    """Test 4b: GET /api/events/{id} for valid and invalid IDs"""
-    print("\n" + "="*80)
-    print("TEST 4b: Event by ID")
-    print("="*80)
-    
+def test_jaipur_validation() -> bool:
+    outcomes = []
+    for path, label in (
+        ("jaipur/search?q=ab", "reject too-short place searches"),
+        (
+            "jaipur/area?lat=0&lon=0&name=Outside&language=en",
+            "reject coordinates outside Jaipur",
+        ),
+        ("jaipur/area?lat=26.9&lon=75.8&language=en", "require an area name"),
+        ("jaipur/places?group=unsupported", "reject unsupported place categories"),
+    ):
+        passed, payload = check_response("GET", path, 400)
+        if passed:
+            passed = isinstance(payload, dict) and bool(payload.get("error"))
+            check(label, passed, "API returns a validation error" if passed else str(payload))
+        outcomes.append(passed)
+
     try:
-        # First get list of events
-        response = requests.get(f"{BASE_URL}/events", timeout=10)
-        if response.status_code != 200:
-            log_test("GET /api/events for ID test", False, "Could not fetch events list")
-            return False
-        
-        events = response.json()
-        if not events or len(events) == 0:
-            log_test("GET /api/events for ID test", False, "No events found")
-            return False
-        
-        # Test valid event ID
-        valid_id = events[0].get("id")
-        print(f"\nTesting valid event ID: {valid_id}")
-        response = requests.get(f"{BASE_URL}/events/{valid_id}", timeout=10)
-        print(f"Status Code: {response.status_code}")
-        
-        if response.status_code != 200:
-            log_test("GET /api/events/{valid_id}", False, f"Expected 200, got {response.status_code}")
-            return False
-        
-        data = response.json()
-        if data.get("id") == valid_id:
-            log_test("GET /api/events/{valid_id}", True, f"Returned event with id={valid_id}")
-        else:
-            log_test("GET /api/events/{valid_id}", False, f"Expected id={valid_id}, got {data.get('id')}")
-            return False
-        
-        # Test invalid event ID
-        invalid_id = "invalid-event-id-12345"
-        print(f"\nTesting invalid event ID: {invalid_id}")
-        response = requests.get(f"{BASE_URL}/events/{invalid_id}", timeout=10)
-        print(f"Status Code: {response.status_code}")
-        
-        if response.status_code == 404:
-            log_test("GET /api/events/{invalid_id} returns 404", True, "Correctly returned 404")
-        else:
-            log_test("GET /api/events/{invalid_id} returns 404", False, f"Expected 404, got {response.status_code}")
-            return False
-        
-        return True
-        
-    except Exception as e:
-        log_test("GET /api/events/{id}", False, f"Exception: {str(e)}")
-        return False
-
-def test_alert_resolve():
-    """Test 5: Alert resolve functionality"""
-    print("\n" + "="*80)
-    print("TEST 5: Alert Resolve")
-    print("="*80)
-    
-    try:
-        # Get list of alerts
-        response = requests.get(f"{BASE_URL}/alerts", timeout=10)
-        if response.status_code != 200:
-            log_test("GET /api/alerts for resolve test", False, "Could not fetch alerts")
-            return False
-        
-        alerts = response.json()
-        if not alerts or len(alerts) == 0:
-            log_test("GET /api/alerts for resolve test", False, "No alerts found")
-            return False
-        
-        # Find an active alert
-        active_alert = None
-        for alert in alerts:
-            if alert.get("status") == "active":
-                active_alert = alert
-                break
-        
-        if not active_alert:
-            log_test("Find active alert", False, "No active alerts found")
-            return False
-        
-        alert_id = active_alert.get("id")
-        print(f"\nResolving alert ID: {alert_id}")
-        log_test("Find active alert", True, f"Found active alert: {alert_id}")
-        
-        # Resolve the alert
-        response = requests.post(f"{BASE_URL}/alerts/{alert_id}/resolve", timeout=10)
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {json.dumps(response.json(), indent=2)}")
-        
-        if response.status_code != 200:
-            log_test("POST /api/alerts/{id}/resolve status", False, f"Expected 200, got {response.status_code}")
-            return False
-        
-        data = response.json()
-        if data.get("ok") != True:
-            log_test("POST /api/alerts/{id}/resolve response", False, f"Expected {{ok: true}}, got {data}")
-            return False
-        
-        log_test("POST /api/alerts/{id}/resolve", True, "Alert resolved successfully")
-        
-        # Verify alert status changed to 'resolved'
-        time.sleep(0.5)
-        response = requests.get(f"{BASE_URL}/alerts", timeout=10)
-        if response.status_code != 200:
-            log_test("GET /api/alerts after resolve", False, "Could not fetch alerts")
-            return False
-        
-        alerts = response.json()
-        resolved_alert = None
-        for alert in alerts:
-            if alert.get("id") == alert_id:
-                resolved_alert = alert
-                break
-        
-        if not resolved_alert:
-            log_test("Verify alert resolved", False, f"Alert {alert_id} not found after resolve")
-            return False
-        
-        if resolved_alert.get("status") == "resolved":
-            log_test("Verify alert status='resolved'", True, f"Alert status is 'resolved'")
-        else:
-            log_test("Verify alert status='resolved'", False, f"Expected 'resolved', got '{resolved_alert.get('status')}'")
-            return False
-        
-        return True
-        
-    except Exception as e:
-        log_test("Alert resolve", False, f"Exception: {str(e)}")
-        return False
-
-def test_idempotency():
-    """Test 6: Idempotency and robustness"""
-    print("\n" + "="*80)
-    print("TEST 6: Idempotency and Robustness")
-    print("="*80)
-    
-    try:
-        # Call advance again after step 5 (should not crash)
-        print("\nCalling /api/scenario/advance after step 5 (should not crash)")
-        response = requests.post(f"{BASE_URL}/scenario/advance", timeout=10)
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {json.dumps(response.json(), indent=2)}")
-        
-        if response.status_code != 200:
-            log_test("Advance after step 5 (no crash)", False, f"Expected 200, got {response.status_code}")
-            return False
-        
-        data = response.json()
-        if data.get("step") == 5:
-            log_test("Advance after step 5 (no crash)", True, "Returned step 5, no crash")
-        else:
-            log_test("Advance after step 5 (no crash)", False, f"Unexpected step: {data.get('step')}")
-        
-        # Call reset again (should return to normal state)
-        print("\nCalling /api/scenario/reset again")
-        response = requests.post(f"{BASE_URL}/scenario/reset", timeout=10)
-        print(f"Status Code: {response.status_code}")
-        
-        if response.status_code != 200:
-            log_test("Reset again (no crash)", False, f"Expected 200, got {response.status_code}")
-            return False
-        
-        data = response.json()
-        if data.get("step") == 0:
-            log_test("Reset again (no crash)", True, "Returned step 0")
-        else:
-            log_test("Reset again (no crash)", False, f"Expected step 0, got {data.get('step')}")
-        
-        # Verify correlations cleared
-        time.sleep(0.5)
-        response = requests.get(f"{BASE_URL}/state", timeout=10)
-        if response.status_code != 200:
-            log_test("GET /api/state after reset", False, "Could not fetch state")
-            return False
-        
-        data = response.json()
-        correlations = data.get("correlations", [])
-        if len(correlations) == 0:
-            log_test("Correlations cleared after reset", True, "Correlations array is empty")
-        else:
-            log_test("Correlations cleared after reset", False, f"Expected 0 correlations, got {len(correlations)}")
-        
-        return True
-        
-    except Exception as e:
-        log_test("Idempotency test", False, f"Exception: {str(e)}")
-        return False
-
-def main():
-    """Run all tests"""
-    print("\n" + "="*80)
-    print("CITYPULSE BACKEND API TEST SUITE")
-    print("="*80)
-    print(f"Base URL: {BASE_URL}")
-    print("="*80)
-    
-    results = {}
-    
-    # Test 1: Reset and initial state
-    results["reset"] = test_scenario_reset()
-    results["initial_state"] = test_initial_state()
-    
-    # Test 2: Advance 5 steps
-    results["advance_5_steps"] = test_scenario_advance_5_steps()
-    
-    # Test 3: Final state verification
-    results["final_state"] = test_final_state()
-    
-    # Test 4: List endpoints
-    results["list_endpoints"] = test_list_endpoints()
-    results["event_by_id"] = test_event_by_id()
-    
-    # Test 5: Alert resolve
-    results["alert_resolve"] = test_alert_resolve()
-    
-    # Test 6: Idempotency
-    results["idempotency"] = test_idempotency()
-    
-    # Summary
-    print("\n" + "="*80)
-    print("TEST SUMMARY")
-    print("="*80)
-    
-    passed = sum(1 for v in results.values() if v)
-    total = len(results)
-    
-    for test_name, result in results.items():
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{status}: {test_name}")
-    
-    print(f"\nTotal: {passed}/{total} tests passed")
-    
-    if passed == total:
-        print("\n🎉 ALL TESTS PASSED!")
-        return 0
+        status, payload = request_json(
+            "POST",
+            "scenario/reset",
+            headers={"Origin": "https://untrusted.example"},
+        )
+        passed = status == 403
+        check(
+            "reject cross-origin mutations",
+            passed,
+            "" if passed else f"expected HTTP 403, got {status}: {payload}",
+        )
+    except (OSError, RuntimeError) as error:
+        outcomes.append(check("reject cross-origin mutations", False, str(error)))
     else:
-        print(f"\n⚠️  {total - passed} TEST(S) FAILED")
+        outcomes.append(passed)
+    return all(outcomes)
+
+
+def test_reset_and_initial_state() -> tuple[bool, dict[str, Any] | None]:
+    passed, payload = check_response("POST", "scenario/reset")
+    if not passed:
+        return False, None
+    passed = isinstance(payload, dict) and payload.get("step") == 0
+    check("reset returns step zero", passed, str(payload))
+    if not passed:
+        return False, None
+
+    passed, state = check_response("GET", "state")
+    if not passed or not isinstance(state, dict):
+        check("state response is an object", False, f"got {type(state).__name__}")
+        return False, None
+    check("state response is an object", True)
+
+    zones = state.get("zones")
+    events = state.get("events")
+    passed = isinstance(zones, list) and len(zones) > 0
+    check("snapshot contains configured zones", passed, f"count={len(zones) if isinstance(zones, list) else 'invalid'}")
+    if not passed:
+        return False, state
+
+    passed = isinstance(events, list) and len(events) > 0
+    check("reset seeds demo scenario events", passed, f"count={len(events) if isinstance(events, list) else 'invalid'}")
+
+    correlations = state.get("correlations")
+    passed = isinstance(correlations, list) and not correlations
+    check("reset clears previous correlations", passed, str(correlations))
+
+    city = state.get("city")
+    pulse = city.get("pulse") if isinstance(city, dict) else None
+    passed = isinstance(pulse, (int, float)) and 0 <= pulse <= 100
+    check("city pulse is in the 0-100 range", passed, str(pulse))
+
+    feeds = state.get("feeds")
+    passed = (
+        isinstance(feeds, list)
+        and {feed.get("source") for feed in feeds if isinstance(feed, dict)}
+        == {"weather", "traffic", "transit"}
+    )
+    check("snapshot reports all civic feed states", passed, str(feeds))
+    return passed, state
+
+
+def test_scenario_progression() -> bool:
+    expected_messages = {
+        1: "rainfall",
+        2: "traffic incidents",
+        3: "transit delays",
+        4: "anomalies",
+        5: "insight",
+    }
+    outcomes = []
+    for step, keyword in expected_messages.items():
+        passed, payload = check_response("POST", "scenario/advance")
+        if not passed or not isinstance(payload, dict):
+            outcomes.append(False)
+            continue
+        outcomes.append(check(f"scenario advances to step {step}", payload.get("step") == step, str(payload)))
+        message = payload.get("message", "")
+        outcomes.append(
+            check(
+                f"step {step} reports the expected event",
+                isinstance(message, str) and keyword in message.lower(),
+                str(message),
+            )
+        )
+        if step == 4:
+            outcomes.append(check("step 4 includes correlation field", "correlation" in payload))
+        if step == 5:
+            outcomes.append(check("step 5 includes summary", bool(payload.get("summary"))))
+            outcomes.append(check("step 5 includes AI provenance flag", isinstance(payload.get("ai"), bool)))
+    return all(outcomes)
+
+
+def test_final_snapshot() -> bool:
+    passed, state = check_response("GET", "state")
+    if not passed or not isinstance(state, dict):
+        return False
+
+    zone_views = state.get("zones")
+    zone_three = next(
+        (
+            item
+            for item in zone_views or []
+            if isinstance(item, dict)
+            and isinstance(item.get("zone"), dict)
+            and item["zone"].get("label") == "Zone 3"
+        ),
+        None,
+    )
+    if zone_three is None:
+        check("final snapshot contains Zone 3", False)
+        return False
+    check("final snapshot contains Zone 3", True)
+
+    anomalies = zone_three.get("anomalies", [])
+    metrics = {item.get("metric") for item in anomalies if isinstance(item, dict)}
+    expected_metrics = {"rainfall_mm_h", "traffic_incidents", "transit_delays"}
+    outcomes = [
+        check("scenario produces the three expected anomalies", expected_metrics <= metrics, str(metrics)),
+        check(
+            "scenario persists a correlation",
+            isinstance(state.get("correlations"), list) and len(state["correlations"]) > 0,
+        ),
+        check(
+            "scenario persists an insight",
+            isinstance(state.get("insights"), list) and len(state["insights"]) > 0,
+        ),
+        check(
+            "scenario persists an active high-severity alert",
+            any(
+                isinstance(alert, dict)
+                and alert.get("status") == "active"
+                and alert.get("severity") == "high"
+                for alert in state.get("alerts", [])
+            ),
+        ),
+    ]
+    return all(outcomes)
+
+
+def test_record_endpoints() -> bool:
+    outcomes = []
+    for path in (
+        "zones",
+        "events",
+        "anomalies",
+        "correlations",
+        "insights",
+        "alerts",
+    ):
+        passed, payload = check_response("GET", path)
+        if passed:
+            passed = isinstance(payload, list)
+            check(f"{path} endpoint returns an array", passed, f"got {type(payload).__name__}")
+        outcomes.append(passed)
+
+    passed, events = check_response("GET", "events")
+    if not passed or not isinstance(events, list) or not events:
+        outcomes.append(check("event list contains an event for detail lookup", False))
+        return False
+    event_id = events[0].get("id") if isinstance(events[0], dict) else None
+    if not event_id:
+        outcomes.append(check("event records include an id", False, str(events[0])))
+        return False
+
+    passed, event = check_response("GET", f"events/{event_id}")
+    outcomes.append(
+        check(
+            "event detail matches requested id",
+            passed and isinstance(event, dict) and event.get("id") == event_id,
+            str(event),
+        )
+    )
+    passed, _ = check_response("GET", "events/not-a-real-event-id", 404)
+    outcomes.append(passed)
+    return all(outcomes)
+
+
+def test_alert_resolution() -> bool:
+    passed, alerts = check_response("GET", "alerts")
+    if not passed or not isinstance(alerts, list):
+        return False
+    active = next(
+        (
+            item
+            for item in alerts
+            if isinstance(item, dict) and item.get("status") == "active"
+        ),
+        None,
+    )
+    if active is None:
+        check("alert resolution fixture exists", False)
+        return False
+    check("alert resolution fixture exists", True)
+
+    alert_id = active.get("id")
+    passed, payload = check_response("POST", f"alerts/{alert_id}/resolve")
+    if not passed:
+        return False
+    outcomes = [check("resolve endpoint returns ok", isinstance(payload, dict) and payload.get("ok") is True)]
+
+    passed, alerts = check_response("GET", "alerts")
+    if not passed or not isinstance(alerts, list):
+        return False
+    resolved = next((item for item in alerts if isinstance(item, dict) and item.get("id") == alert_id), None)
+    outcomes.append(check("resolved alert is reflected in list endpoint", isinstance(resolved, dict) and resolved.get("status") == "resolved"))
+    return all(outcomes)
+
+
+def test_idempotency_and_reset() -> bool:
+    passed, payload = check_response("POST", "scenario/advance")
+    if not passed:
+        return False
+    outcomes = [check("advance after completion remains at step five", isinstance(payload, dict) and payload.get("step") == 5)]
+
+    passed, payload = check_response("POST", "scenario/reset")
+    if not passed:
+        return False
+    outcomes.append(check("second reset returns step zero", isinstance(payload, dict) and payload.get("step") == 0))
+
+    passed, state = check_response("GET", "state")
+    if not passed or not isinstance(state, dict):
+        return False
+    outcomes.append(check("second reset clears correlations", state.get("correlations") == []))
+    outcomes.append(check("second reset clears alerts", state.get("alerts") == []))
+    return all(outcomes)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--base-url",
+        default=os.environ.get("CITYPULSE_BASE_URL", DEFAULT_BASE_URL),
+        help="API base URL (default: CITYPULSE_BASE_URL or %(default)s)",
+    )
+    parser.add_argument(
+        "--allow-mutations",
+        action="store_true",
+        help="confirm that the suite may reset scenario data and resolve an alert",
+    )
+    args = parser.parse_args()
+
+    global base_url
+    base_url = args.base_url.rstrip("/")
+    print(f"CityPulse API smoke tests: {base_url}")
+    if not args.allow_mutations:
+        print(
+            "Refusing to run: this suite mutates scenario data. "
+            "Use a disposable CITYPULSE_DB_PATH and pass --allow-mutations.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if not test_health():
+        print("API health check failed; no further tests were run.", file=sys.stderr)
         return 1
 
+    test_jaipur_validation()
+    if test_reset_and_initial_state()[0]:
+        if test_scenario_progression():
+            test_final_snapshot()
+            test_record_endpoints()
+            test_alert_resolution()
+            test_idempotency_and_reset()
+
+    print("\nTest summary")
+    passed = sum(result for _, result, _ in checks)
+    print(f"{passed}/{len(checks)} checks passed")
+    for name, result, details in checks:
+        if not result:
+            suffix = f": {details}" if details else ""
+            print(f"  FAIL: {name}{suffix}")
+    return 0 if passed == len(checks) else 1
+
+
 if __name__ == "__main__":
-    exit(main())
+    raise SystemExit(main())

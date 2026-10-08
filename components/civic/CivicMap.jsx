@@ -32,6 +32,17 @@ export default function CivicMap({
   const mapRef = useRef(null)
   const layerRef = useRef(null)
   const LRef = useRef(null)
+  const resizeTimerRef = useRef(null)
+  const mapDataRef = useRef(null)
+  mapDataRef.current = {
+    snapshot,
+    layers,
+    selectedZoneId,
+    onSelectEvent,
+    places,
+    focusedPlace,
+    onSelectPlace,
+  }
 
   useEffect(() => {
     let mounted = true
@@ -42,7 +53,12 @@ export default function CivicMap({
       LRef.current = L
       if (!mapRef.current) {
         mapRef.current = L.map(containerRef.current, { zoomControl: true, attributionControl: true })
-          .setView(CITY.center, CITY.zoom)
+          .setView(
+            mapDataRef.current?.focusedPlace
+              ? [mapDataRef.current.focusedPlace.latitude, mapDataRef.current.focusedPlace.longitude]
+              : CITY.center,
+            mapDataRef.current?.focusedPlace ? Math.max(CITY.zoom, 15) : CITY.zoom
+          )
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap contributors', maxZoom: 19, subdomains: 'abc',
         }).addTo(mapRef.current)
@@ -51,10 +67,17 @@ export default function CivicMap({
         if (pane) pane.style.filter = 'invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6)'
         layerRef.current = L.layerGroup().addTo(mapRef.current)
       }
-      setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 200)
+      resizeTimerRef.current = setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 200)
       draw()
     })()
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+      clearTimeout(resizeTimerRef.current)
+      mapRef.current?.remove()
+      mapRef.current = null
+      layerRef.current = null
+      LRef.current = null
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -71,13 +94,23 @@ export default function CivicMap({
 
   function draw() {
     const L = LRef.current, map = mapRef.current, lg = layerRef.current
+    const {
+      snapshot,
+      layers,
+      selectedZoneId,
+      onSelectEvent,
+      places,
+      focusedPlace,
+      onSelectPlace,
+    } = mapDataRef.current || {}
     if (!L || !map || !lg || !snapshot) return
     lg.clearLayers()
 
     for (const zv of snapshot.zones || []) {
       const z = zv.zone
       if (z.latitude == null) continue
-      const color = pulseColor(zv.pulse.score)
+      const hasReports = zv.eventCount > 0
+      const color = hasReports ? pulseColor(zv.pulse.score) : "#64748b"
       const selected = selectedZoneId === z.id
       L.circle([z.latitude, z.longitude], {
         radius: z.radius || 800, color, weight: selected ? 3 : 1,
@@ -85,7 +118,7 @@ export default function CivicMap({
       }).addTo(lg)
       L.marker([z.latitude, z.longitude], {
         icon: L.divIcon({
-          className: '', html: `<div style="transform:translate(-50%,-50%);white-space:nowrap;font:600 11px Inter,sans-serif;color:#cbd5e1;background:rgba(15,23,42,.75);padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,.25)">${z.label} · ${zv.pulse.score}</div>`,
+          className: '', html: `<div style="transform:translate(-50%,-50%);white-space:nowrap;font:600 11px Inter,sans-serif;color:#cbd5e1;background:rgba(15,23,42,.75);padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,.25)">${escapeHtml(z.label)} · ${hasReports ? zv.pulse.score : '—'}</div>`,
         }),
         interactive: false,
       }).addTo(lg)

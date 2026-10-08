@@ -75,12 +75,7 @@ function sameOrigin(request) {
   try {
     const candidate = new URL(origin);
     const expected = new URL(request.url);
-    if (candidate.origin === expected.origin) return true;
-    const configured = (process.env.CORS_ORIGINS || "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-    return configured.includes(candidate.origin);
+    return candidate.origin === expected.origin;
   } catch {
     return false;
   }
@@ -176,8 +171,21 @@ async function handle(request, { params }) {
   if (writeRequest && !sameOrigin(request)) {
     return json({ error: "Cross-origin mutation rejected." }, 403);
   }
-  const kind = route === "/jaipur/search" ? "search" : route === "/jaipur/area" ? "area" : writeRequest ? "write" : "read";
-  const limited = rateLimit(request, route, kind);
+  const kind =
+    route === "/jaipur/search"
+      ? "search"
+      : route === "/jaipur/area"
+        ? "area"
+        : writeRequest
+          ? "write"
+          : "read";
+  const rateRoute =
+    path[0] === "events" && path[1]
+      ? "/events/:id"
+      : path[0] === "alerts" && path[1]
+        ? "/alerts/:id/resolve"
+        : route;
+  const limited = rateLimit(request, rateRoute, kind);
   if (limited) return limited;
 
   try {
