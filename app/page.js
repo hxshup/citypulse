@@ -363,7 +363,7 @@ const COPY = {
     historicalReplay: "Historical replay",
     loadingCivic: "Loading civic signals…",
     dataErrorTitle: "Could not reach the data layer",
-    dataErrorHint: "Ensure the local SQLite file is writable, or configure",
+    dataErrorHint: "For Vercel, configure persistent storage with",
     wholeCity: "Whole City",
     activeUpdates: "active updates",
     noLiveIncidents: "No active incidents in the live wire.",
@@ -504,7 +504,7 @@ const COPY = {
     historicalReplay: "पुरानी घटनाएँ",
     loadingCivic: "नागरिक संकेत लोड हो रहे हैं…",
     dataErrorTitle: "डेटा सेवा से संपर्क नहीं हो पाया",
-    dataErrorHint: "स्थानीय SQLite फ़ाइल लिखने योग्य होनी चाहिए, या यह कॉन्फ़िगर करें",
+    dataErrorHint: "Vercel पर स्थायी डेटा के लिए यह सेट करें",
     wholeCity: "पूरा शहर",
     activeUpdates: "सक्रिय अपडेट",
     noLiveIncidents: "लाइव फ़ीड में कोई सक्रिय घटना नहीं है।",
@@ -1028,11 +1028,7 @@ function LandmarkGrid({ places, loading, onSelectPlace, language }) {
 /* ----------------------------- main app ----------------------------- */
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "map", label: "Live Map", icon: MapPin },
-  { id: "intelligence", label: "Intelligence", icon: Network },
-  { id: "events", label: "Events", icon: Clock },
-  { id: "alerts", label: "Alerts", icon: Bell },
-  { id: "replay", label: "Replay", icon: History },
+  { id: "map", label: "City atlas", icon: MapPin },
 ];
 
 function App() {
@@ -1041,13 +1037,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [tab, setTab] = useState("overview");
-  const [scope, setScope] = useState("city");
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [playing, setPlaying] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [activity, setActivity] = useState([]);
   const [language, setLanguage] = useState("en");
   const [focusedArea, setFocusedArea] = useState({
     name: "Jaipur",
@@ -1062,14 +1052,6 @@ function App() {
   const [placesLoading, setPlacesLoading] = useState(false);
   const [placesError, setPlacesError] = useState("");
   const placesRequestedRef = useRef(false);
-  const previousEventsRef = useRef(new Map());
-  const [layers, setLayers] = useState({
-    weather: true,
-    traffic: true,
-    transit: true,
-    anomalies: true,
-  });
-  const playRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -1167,50 +1149,6 @@ function App() {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || "Failed to load");
-      const previousEvents = previousEventsRef.current;
-
-      const currentEvents = new Map(
-        (d.events || []).map((event) => [event.id, event]),
-      );
-
-      const changes = [];
-
-      for (const event of d.events || []) {
-        const previous = previousEvents.get(event.id);
-
-        // Newly detected active incident
-        if (!previous && event.status === "active") {
-          changes.push({
-            id: `${event.id}-active-${Date.now()}`,
-            type: "new",
-            event,
-            time: Date.now(),
-          });
-        }
-
-        // Previously active incident has now resolved
-        if (previous?.status === "active" && event.status === "resolved") {
-          changes.push({
-            id: `${event.id}-resolved-${Date.now()}`,
-            type: "resolved",
-            event,
-            time: Date.now(),
-          });
-        }
-      }
-
-      previousEventsRef.current = currentEvents;
-
-      if (changes.length) {
-        setActivity((prev) => [...changes, ...prev].slice(0, 6));
-
-        changes.forEach((change) => {
-          setTimeout(() => {
-            setActivity((prev) => prev.filter((item) => item.id !== change.id));
-          }, 5000);
-        });
-      }
-
       setSnapshot(d);
       setErr(null);
     } catch (e) {
@@ -1227,63 +1165,8 @@ function App() {
 
   useEffect(() => {
     fetchState();
-    const id = setInterval(fetchState, 30000);
-    return () => clearInterval(id);
+    return undefined;
   }, [fetchState]);
-
-  const flash = (m) => {
-    setToast(m);
-    setTimeout(() => setToast(null), 2600);
-  };
-
-  async function doRefreshScores() {
-    setBusy(true);
-    try {
-      await fetchState();
-      flash(copy(language, "liveScoresRefreshed"));
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function doAdvance() {
-    setBusy(true);
-    try {
-      const r = await fetch("/api/scenario/advance", { method: "POST" });
-      const d = await r.json();
-      flash(d.message);
-      await fetchState();
-      return d;
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function doPlay() {
-    if (playRef.current) return;
-    playRef.current = true;
-    setPlaying(true);
-    await fetch("/api/scenario/reset", { method: "POST" });
-    flash(copy(language, "scenarioNormal"));
-    await fetchState();
-    for (let i = 0; i < 5; i++) {
-      await new Promise((res) => setTimeout(res, 2600));
-      if (!playRef.current) break;
-      const d = await doAdvance();
-      if (d?.done) break;
-    }
-    playRef.current = false;
-    setPlaying(false);
-  }
-
-  const view = useMemo(() => scopeView(snapshot, scope), [snapshot, scope]);
-  const activeCorrelation = useMemo(
-    () => snapshot?.correlations?.[0] || null,
-    [snapshot],
-  );
-  const latestInsight = useMemo(
-    () => snapshot?.insights?.[0] || null,
-    [snapshot],
-  );
-  const step = snapshot?.step ?? 0;
   const chooseArea = (place) => {
     setAreaBriefing(null);
     setAreaError("");
@@ -1307,10 +1190,6 @@ function App() {
           "radial-gradient(1200px 500px at 80% -10%, rgba(56,189,248,0.08), transparent), radial-gradient(1000px 400px at 0% 0%, rgba(168,85,247,0.06), transparent)",
       }}
     >
-      {/* Live Incident Activity */}
-      {activity.length > 0 && (
-        <div className="fixed right-5 top-20 z-50 w-[340px] space-y-2"></div>
-      )}
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-3 py-3 sm:flex-nowrap sm:px-4">
@@ -1367,27 +1246,6 @@ function App() {
             ))}
           </div>
 
-          <div className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
-            <div className="mr-1 hidden text-xs text-slate-400 sm:block">
-              {copy(language, "scenarioStep")}{" "}
-              <span className="font-bold text-slate-200">{step}/5</span>
-            </div>
-            <button
-              onClick={doPlay}
-              disabled={busy || playing}
-              className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-violet-600 px-2 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50 sm:flex-none sm:px-3"
-            >
-              <Play className="h-4 w-4" />{" "}
-              {playing ? "Playing…" : copy(language, "simulatedDemo")}
-            </button>
-            <button
-              onClick={doAdvance}
-              disabled={busy || playing || step >= 5}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40 sm:px-3"
-            >
-              <SkipForward className="h-4 w-4" /> {copy(language, "nextStep")}
-            </button>
-          </div>
         </div>
         {/* tabs */}
         <div className="mx-auto hidden max-w-[1400px] gap-1 overflow-x-auto px-4 sm:flex">
@@ -1400,16 +1258,6 @@ function App() {
                 className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition ${active ? "border-sky-400 text-sky-300" : "border-transparent text-slate-400 hover:text-slate-200"}`}
               >
                 <t.icon className="h-4 w-4" /> {copy(language, t.id)}
-                {t.id === "alerts" &&
-                  snapshot?.alerts?.filter((a) => a.status === "active")
-                    .length > 0 && (
-                    <span className="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
-                      {
-                        snapshot.alerts.filter((a) => a.status === "active")
-                          .length
-                      }
-                    </span>
-                  )}
               </button>
             );
           })}
@@ -1469,16 +1317,6 @@ function App() {
                   >
                     <t.icon className="h-4 w-4" />
                     <span>{copy(language, t.id)}</span>
-                    {t.id === "alerts" &&
-                      snapshot?.alerts?.filter((a) => a.status === "active")
-                        .length > 0 && (
-                        <span className="ml-auto rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
-                          {
-                            snapshot.alerts.filter((a) => a.status === "active")
-                              .length
-                          }
-                        </span>
-                      )}
                   </button>
                 );
               })}
@@ -1501,7 +1339,9 @@ function App() {
             <p className="text-sm">{err}</p>
             <p className="mt-2 text-sm text-amber-300/80">
               {copy(language, "dataErrorHint")}{" "}
-              <code>CITYPULSE_DB_PATH</code> to a writable path.
+              {language === "hi"
+                ? "सार्वजनिक मौसम, समाचार और मानचित्र स्रोत डेटाबेस के बिना उपलब्ध हैं; संग्रहीत रिपोर्ट के लिए MONGODB_URI कॉन्फ़िगर करें।"
+                : "Public weather, news, and map sources work without a database; configure MONGODB_URI only to enable persistent reports."}
             </p>
           </div>
         )}
@@ -1555,18 +1395,9 @@ function App() {
                 transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: "easeOut" }}
               >
             {tab === "overview" && (
-              <Overview
-                snapshot={snapshot}
-                view={view}
-                scope={scope}
-                setScope={setScope}
-                correlation={activeCorrelation}
-                insight={latestInsight}
-                goIntel={() => setTab("intelligence")}
-                activity={activity}
+              <LiveOverview
                 places={cityPlaces}
                 placesLoading={placesLoading}
-                focusedArea={focusedArea}
                 onSelectPlace={chooseArea}
                 language={language}
               />
@@ -1574,11 +1405,6 @@ function App() {
             {tab === "map" && (
               <MapTab
                 snapshot={snapshot}
-                layers={layers}
-                setLayers={setLayers}
-                scope={scope}
-                selectedEvent={selectedEvent}
-                setSelectedEvent={setSelectedEvent}
                 places={cityPlaces}
                 placesLoading={placesLoading}
                 placesError={placesError}
@@ -1587,43 +1413,45 @@ function App() {
                 language={language}
               />
             )}
-            {tab === "intelligence" && (
-              <Intelligence
-                snapshot={snapshot}
-                correlation={activeCorrelation}
-                insight={latestInsight}
-                language={language}
-              />
-            )}
-            {tab === "events" && (
-              <Events
-                snapshot={snapshot}
-                selectedEvent={selectedEvent}
-                setSelectedEvent={setSelectedEvent}
-                language={language}
-              />
-            )}
-            {tab === "alerts" && (
-              <Alerts snapshot={snapshot} refresh={fetchState} language={language} />
-            )}
-            {tab === "replay" && <Replay snapshot={snapshot} language={language} />}
               </motion.div>
             </AnimatePresence>
           </>
         )}
       </main>
 
-      {toast && (
-        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-900/95 px-4 py-2.5 text-sm text-slate-100 shadow-2xl">
-          <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-sky-400 align-middle" />
-          {toast}
-        </div>
-      )}
     </div>
   );
 }
 
 /* ----------------------------- Overview ----------------------------- */
+function LiveOverview({ places, placesLoading, onSelectPlace, language }) {
+  return (
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <section className="cp-panel rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.08] to-violet-500/[0.04] p-5 lg:col-span-3">
+        <div className="flex items-start gap-3">
+          <Radio className="mt-0.5 h-5 w-5 shrink-0 text-sky-300" />
+          <div>
+            <h2 className="font-semibold text-slate-100">
+              {language === "hi" ? "लाइव सार्वजनिक डेटा" : "Live public data"}
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-400">
+              {language === "hi"
+                ? "इस डैशबोर्ड पर मौसम Open-Meteo से, स्थानीय सुर्खियाँ समाचार स्रोतों से और स्थान OpenStreetMap से आते हैं। यह आपातकालीन अलर्ट या सत्यापित लाइव घटना फ़ीड नहीं है।"
+                : "Weather is provided by Open-Meteo, local headlines by news publishers, and places by OpenStreetMap. This is not an emergency alert service or a verified live incident feed."}
+            </p>
+          </div>
+        </div>
+      </section>
+      <LandmarkGrid
+        places={places}
+        loading={placesLoading}
+        onSelectPlace={onSelectPlace}
+        language={language}
+      />
+    </div>
+  );
+}
+
 function Overview({
   snapshot,
   view,
@@ -1977,10 +1805,6 @@ function CityAtlas({ places, loading, error, onSelectPlace, language }) {
 
 function MapTab({
   snapshot,
-  layers,
-  setLayers,
-  selectedEvent,
-  setSelectedEvent,
   places,
   placesLoading,
   placesError,
@@ -1988,15 +1812,8 @@ function MapTab({
   onSelectPlace,
   language,
 }) {
-  const toggle = (k) => setLayers((p) => ({ ...p, [k]: !p[k] }));
-  const LAYERS = [
-    { k: "weather", label: "layerWeather", c: "text-sky-300" },
-    { k: "traffic", label: "layerTraffic", c: "text-amber-300" },
-    { k: "transit", label: "layerTransit", c: "text-violet-300" },
-    { k: "anomalies", label: "layerAnomalies", c: "text-rose-300" },
-  ];
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4">
       <CityAtlas
         places={places}
         loading={placesLoading}
@@ -2004,44 +1821,13 @@ function MapTab({
         onSelectPlace={onSelectPlace}
         language={language}
       />
-      <div className="lg:col-span-3">
-        <div className="mb-3 flex flex-wrap gap-2">
-          {LAYERS.map((l) => (
-            <button
-              key={l.k}
-              onClick={() => toggle(l.k)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${layers[l.k] ? "border-slate-600 bg-slate-800 text-slate-100" : "border-slate-800 bg-slate-950 text-slate-500"}`}
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${layers[l.k] ? "bg-current " + l.c : "bg-slate-600"}`}
-              />{" "}
-              {copy(language, l.label)}
-            </button>
-          ))}
-        </div>
-        <div className="cp-panel h-[min(560px,70vh)] min-h-[360px] overflow-hidden rounded-xl border border-slate-800">
+      <div className="cp-panel h-[min(640px,75vh)] min-h-[400px] overflow-hidden rounded-2xl border border-slate-800">
           <CivicMap
             snapshot={snapshot}
-            layers={layers}
-            selectedZoneId={null}
-            onSelectEvent={setSelectedEvent}
             places={places}
             focusedPlace={focusedArea}
             onSelectPlace={onSelectPlace}
           />
-        </div>
-      </div>
-      <div className="lg:col-span-1">
-        <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-          {copy(language, "eventDetails")}
-        </div>
-        {selectedEvent ? (
-          <EventPanel event={selectedEvent} snapshot={snapshot} language={language} />
-        ) : (
-          <div className="mt-3 rounded-xl border border-dashed border-slate-800 p-6 text-center text-sm text-slate-500">
-            {copy(language, "selectMapMarker")}
-          </div>
-        )}
       </div>
     </div>
   );

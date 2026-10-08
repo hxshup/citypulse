@@ -2,13 +2,6 @@
 import { useEffect, useRef } from 'react'
 import { CITY } from '@/lib/civic/config'
 
-const SOURCE_COLOR = { weather: '#38bdf8', traffic: '#f59e0b', transit: '#a78bfa' }
-function pulseColor(score) {
-  if (score >= 80) return '#10b981'
-  if (score >= 60) return '#f59e0b'
-  return '#ef4444'
-}
-
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
@@ -106,23 +99,6 @@ export default function CivicMap({
     if (!L || !map || !lg || !snapshot) return
     lg.clearLayers()
 
-    for (const zv of snapshot.zones || []) {
-      const z = zv.zone
-      if (z.latitude == null) continue
-      const hasReports = zv.eventCount > 0
-      const color = hasReports ? pulseColor(zv.pulse.score) : "#64748b"
-      const selected = selectedZoneId === z.id
-      L.circle([z.latitude, z.longitude], {
-        radius: z.radius || 800, color, weight: selected ? 3 : 1,
-        fillColor: color, fillOpacity: selected ? 0.12 : 0.05, dashArray: selected ? null : '4',
-      }).addTo(lg)
-      L.marker([z.latitude, z.longitude], {
-        icon: L.divIcon({
-          className: '', html: `<div style="transform:translate(-50%,-50%);white-space:nowrap;font:600 11px Inter,sans-serif;color:#cbd5e1;background:rgba(15,23,42,.75);padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,.25)">${escapeHtml(z.label)} · ${hasReports ? zv.pulse.score : '—'}</div>`,
-        }),
-        interactive: false,
-      }).addTo(lg)
-    }
     for (const place of places) {
       if (!Number.isFinite(place.latitude) || !Number.isFinite(place.longitude)) continue
       const color = place.category === 'hospital'
@@ -143,24 +119,6 @@ export default function CivicMap({
       })
       marker.on('click', () => onSelectPlace?.(place))
       marker.addTo(lg)
-    }
-
-    for (const e of snapshot.events || []) {
-      if (e.latitude == null || !layers[e.source]) continue
-      const base = SOURCE_COLOR[e.source] || '#94a3b8'
-      const isHigh = e.severity === 'high'
-      const r = isHigh ? 9 : e.severity === 'medium' ? 7 : 5
-      if (layers.anomalies && isHigh) {
-        L.circleMarker([e.latitude, e.longitude], {
-          radius: r + 7, color: '#ef4444', weight: 1, fillColor: '#ef4444', fillOpacity: 0.12,
-        }).addTo(lg)
-      }
-      const m = L.circleMarker([e.latitude, e.longitude], {
-        radius: r, color: base, weight: 1.5, fillColor: base, fillOpacity: 0.75,
-      })
-      m.bindTooltip(`<b>${e.title}</b><br/>${e.source} · ${e.severity}`, { direction: 'top' })
-      m.on('click', () => onSelectEvent && onSelectEvent(e))
-      m.addTo(lg)
     }
   }
 

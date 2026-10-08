@@ -1,20 +1,12 @@
 import { NextResponse } from "next/server";
-import { ZONE3_ID } from "@/lib/civic/config";
-import { seedNormalEvents, scenarioStepEvents } from "@/lib/civic/synthetic";
-import { generateGroundedSummary } from "@/lib/civic/ai";
 import {
   ensureZones,
-  clearScenarioData,
-  insertEvents,
-  getSimState,
-  setSimState,
   buildSnapshot,
-  persistFindings,
-  createInsightAndAlert,
-  resolveAlert,
   getZones,
   listRecords,
   getEvent,
+  getDatabaseKind,
+  StorageConfigurationError,
 } from "@/lib/civic/store";
 import {
   getJaipurAreaBriefing,
@@ -99,70 +91,6 @@ function parseJaipurCoordinates(url) {
   return { latitude, longitude, name, language };
 }
 
-async function scenarioReset() {
-  await ensureZones();
-  await clearScenarioData();
-  const base = new Date().toISOString();
-  await insertEvents(seedNormalEvents(base));
-  await setSimState(0, base);
-  return { step: 0, message: "City reset to normal state" };
-}
-
-async function scenarioAdvance() {
-  const sim = await getSimState();
-  const base = sim.base_ts || new Date().toISOString();
-  const next = Math.min((sim.step || 0) + 1, 5);
-  if (sim.step >= 5) {
-    return { step: 5, message: "Scenario complete", done: true };
-  }
-
-  if (next <= 3) {
-    await insertEvents(scenarioStepEvents(next, base));
-    await setSimState(next, base);
-    const labels = {
-      1: "Heavy rainfall began in Zone 3",
-      2: "Traffic incidents spiking in Zone 3",
-      3: "Transit delays rising in Zone 3",
-    };
-    return { step: next, message: labels[next] };
-  }
-
-  const snapshot = await buildSnapshot();
-  const zone = snapshot.zones.find((view) => view.zone.id === ZONE3_ID);
-  if (next === 4) {
-    if (zone?.anomalies.length) {
-      await persistFindings(zone.zone, zone.anomalies, zone.correlation);
-    }
-    await setSimState(4, base);
-    return {
-      step: 4,
-      message: "Anomalies + correlation detected in Zone 3",
-      correlation: zone?.correlation || null,
-    };
-  }
-
-  if (zone?.correlation) {
-    const correlation = zone.correlation;
-    const finding = {
-      zoneName: zone.zone.label,
-      rainfall: zone.signals.weather.rainfall,
-      trafficPct: Math.round(zone.signals.traffic.pct),
-      transitPct:
-        zone.signals.transit.pct >= 40
-          ? Math.round(zone.signals.transit.pct)
-          : null,
-      timeOverlapMin: correlation.time_overlap,
-      confidence: correlation.confidence,
-    };
-    const { summary, ai } = await generateGroundedSummary(finding);
-    await createInsightAndAlert(zone.zone, correlation, summary, ai);
-    await setSimState(5, base);
-    return { step: 5, message: "CityPulse generated an insight", summary, ai, done: true };
-  }
-  await setSimState(5, base);
-  return { step: 5, message: "Scenario complete (no correlation)", done: true };
-}
-
 async function handle(request, { params }) {
   const { path = [] } = await params;
   const route = `/${(path || []).join("/")}`;
@@ -176,9 +104,7 @@ async function handle(request, { params }) {
       ? "search"
       : route === "/jaipur/area"
         ? "area"
-        : writeRequest
-          ? "write"
-          : "read";
+        : "read";
   const rateRoute =
     path[0] === "events" && path[1]
       ? "/events/:id"
@@ -190,7 +116,7 @@ async function handle(request, { params }) {
 
   try {
     if (route === "/" || route === "/root") {
-      return json({ app: "CityPulse", status: "ok", database: "sqlite" });
+      return json({ app: "CityPulse", status: "ok", database: getDatabaseKind() });
     }
     if (route === "/state" && method === "GET") {
       await ensureZones();
@@ -233,20 +159,12 @@ async function handle(request, { params }) {
     if (["anomalies", "correlations", "insights", "alerts"].includes(path[0]) && path.length === 1 && method === "GET") {
       return json(await listRecords(path[0]));
     }
-    if (route === "/scenario/reset" && method === "POST") {
-      return json(await scenarioReset());
-    }
-    if (route === "/scenario/advance" && method === "POST") {
-      return json(await scenarioAdvance());
-    }
-    if (path[0] === "alerts" && path[1] && path[2] === "resolve" && method === "POST") {
-      const resolved = await resolveAlert(path[1]);
-      if (!resolved) return json({ error: "Active alert not found." }, 404);
-      return json({ ok: true });
-    }
     return json({ error: `Route ${route} not found` }, 404);
   } catch (error) {
     console.error("[citypulse.api]", route, error);
+    if (error instanceof StorageConfigurationError) {
+      return json({ error: error.message }, 503);
+    }
     return json({ error: "The civic service could not complete this request." }, 500);
   }
 }

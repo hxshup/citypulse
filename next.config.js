@@ -1,4 +1,5 @@
 const nextConfig = {
+  distDir: process.env.CITYPULSE_DIST_DIR || '.next',
   output: 'standalone',
   images: {
     unoptimized: true,
