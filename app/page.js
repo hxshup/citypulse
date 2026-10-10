@@ -249,7 +249,7 @@ function SignalCard({
   );
 }
 
-function Chip({ children, tone = "slate" }) {
+function Chip({ children, tone = "slate", className = "" }) {
   const tones = {
     slate: "bg-slate-800 text-slate-300 border-slate-700",
     rose: "bg-rose-500/15 text-rose-300 border-rose-500/30",
@@ -259,7 +259,7 @@ function Chip({ children, tone = "slate" }) {
   };
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${tones[tone]}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${tones[tone]} ${className}`}
     >
       {children}
     </span>
@@ -1198,7 +1198,7 @@ function App() {
             </div>
           </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2 sm:ml-2">
+          <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 sm:ml-2 sm:max-w-none sm:flex-nowrap">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/[0.07] px-2.5 py-1 text-xs font-semibold text-emerald-300">
               <span className={`h-1.5 w-1.5 rounded-full ${areaBriefing?.weather?.status === "live" || areaBriefing?.news?.status === "live" ? "bg-emerald-400" : "bg-amber-400"}`}>
               </span>
@@ -1207,7 +1207,7 @@ function App() {
             <Chip tone="slate">
               <MapPin className="h-3 w-3" /> {snapshot?.city?.name || "Jaipur"}
             </Chip>
-            <Chip tone="slate">
+            <Chip tone="slate" className="hidden sm:inline-flex">
               <Clock className="h-3 w-3" /> {fmtTime(snapshot?.lastUpdated)}
             </Chip>
             <button
@@ -1363,13 +1363,23 @@ function App() {
             <div className="mb-4">
               <CityAreaSearch language={language} onChoose={chooseArea} />
             </div>
-            <AreaBriefing
-              area={focusedArea}
-              briefing={areaBriefing}
-              loading={areaLoading}
-              error={areaError}
-              language={language}
-            />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={`${focusedArea.latitude}:${focusedArea.longitude}`}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, y: -4 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: "easeOut" }}
+              >
+                <AreaBriefing
+                  area={focusedArea}
+                  briefing={areaBriefing}
+                  loading={areaLoading}
+                  error={areaError}
+                  language={language}
+                />
+              </motion.div>
+            </AnimatePresence>
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={tab}
